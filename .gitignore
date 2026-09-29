@@ -2,3 +2,7 @@ node_modules/
 data/
 *.log
 server.err
+
+cookies.txt
+login-body*.json
+*.txt.bak
