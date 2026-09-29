@@ -2,7 +2,10 @@ const { DatabaseSync } = require('node:sqlite');
 const path = require('path');
 const fs = require('fs');
 const bcrypt = require('bcryptjs');
-const { WEAPONS, COSMETICS, FLAGS, COIN_PACKS, PAYMENT_METHODS, STARTING_COINS } = require('./catalog');
+const {
+  WEAPONS, COSMETICS, FLAGS, COIN_PACKS, PAYMENT_METHODS, STARTING_COINS,
+  LEVEL_UP_COINS, killsNeededAtLevel,
+} = require('./catalog');
 
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
 const DB_PATH = path.join(DATA_DIR, 'game.db');
@@ -94,6 +97,12 @@ function initDb() {
   }
   if (!cols.includes('is_bot')) {
     db.exec(`ALTER TABLE users ADD COLUMN is_bot INTEGER NOT NULL DEFAULT 0`);
+  }
+  if (!cols.includes('level')) {
+    db.exec(`ALTER TABLE users ADD COLUMN level INTEGER NOT NULL DEFAULT 1`);
+  }
+  if (!cols.includes('level_kills')) {
+    db.exec(`ALTER TABLE users ADD COLUMN level_kills INTEGER NOT NULL DEFAULT 0`);
   }
   // Mark scripted / smoke-test accounts so they never pollute member Leaderboard.
   db.prepare(
@@ -295,6 +304,9 @@ function sanitizeUser(u) {
     isAdmin: role !== 'none',
     totalKills: u.total_kills,
     totalDeaths: u.total_deaths,
+    level: Math.max(1, Number(u.level) || 1),
+    levelKills: Math.max(0, Number(u.level_kills) || 0),
+    killsToNextLevel: killsNeededAtLevel(Math.max(1, Number(u.level) || 1)),
     playtimeSec: u.playtime_sec || 0,
     lastIp: u.last_ip || null,
     deviceHash: u.device_hash || null,
@@ -708,7 +720,29 @@ function getLeaderboard(sort, limit, userId) {
 }
 
 function recordKill(userId) {
-  db.prepare('UPDATE users SET total_kills = total_kills + 1 WHERE id = ?').run(userId);
+  const row = db.prepare('SELECT level, level_kills FROM users WHERE id = ?').get(userId);
+  if (!row) return { levelsGained: 0, bonus: 0, user: null };
+
+  let level = Math.max(1, Number(row.level) || 1);
+  let levelKills = Math.max(0, Number(row.level_kills) || 0) + 1;
+  let levelsGained = 0;
+  let bonus = 0;
+  let needed = killsNeededAtLevel(level);
+  while (levelKills >= needed) {
+    levelKills -= needed;
+    level += 1;
+    levelsGained += 1;
+    bonus += LEVEL_UP_COINS;
+    needed = killsNeededAtLevel(level);
+  }
+
+  db.prepare(
+    'UPDATE users SET total_kills = total_kills + 1, level = ?, level_kills = ? WHERE id = ?'
+  ).run(level, levelKills, userId);
+
+  if (bonus > 0) addCoins(userId, bonus, `level_up:${level}`);
+
+  return { levelsGained, bonus, user: getUserById(userId) };
 }
 
 function recordDeath(userId) {

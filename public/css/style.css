@@ -495,6 +495,8 @@ body.rtl #screen-game #chat { direction: rtl; font-family: var(--font-ar), var(-
 .avatar-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 .avatar-actions label.btn { cursor: pointer; margin: 0; }
 .coin-chip { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border: 1px solid var(--line); font-size: 16px; }
+.level-chip { display: inline-flex; align-items: center; gap: 4px; padding: 6px 10px; border: 1px solid var(--line); font-size: 14px; letter-spacing: 0.04em; color: var(--muted, #9aa3ad); }
+.level-chip b { color: var(--text, #e8ecef); font-size: 16px; }
 .coin { display: inline-block; width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--accent); background: radial-gradient(circle, var(--accent) 35%, transparent 40%); }
 
 .menu-body { flex: 1; display: grid; grid-template-columns: 1fr 380px; gap: 24px; padding: 28px; min-height: 0; }

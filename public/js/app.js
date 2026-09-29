@@ -113,15 +113,7 @@ function connectSocket() {
   state.socket?.disconnect();
   const s = window.io({ transports: ['websocket', 'polling'], withCredentials: true });
   s.on('coins', (d) => {
-    if (d.user) {
-      state.user = d.user;
-      $('menu-user').textContent = d.user.username;
-      renderAvatar(d.user);
-      const rename = $('rename-user');
-      if (rename && document.activeElement !== rename) rename.value = d.user.username;
-    } else if (state.user) state.user.coins = d.coins;
-    renderCoins();
-    if (!$('screen-menu').classList.contains('hidden')) renderShops();
+    applyCoinPayload(d);
   });
   s.on('admin:announce', (d) => {
     toast(d.text || t('toast.announce'));
@@ -190,6 +182,30 @@ function enterMenu(user) {
 
 function renderCoins() {
   $('menu-coins').textContent = (state.user?.coins ?? 0).toLocaleString();
+  const lv = $('menu-level');
+  if (lv) lv.textContent = String(state.user?.level ?? 1);
+}
+
+function applyCoinPayload(d) {
+  if (!d) return;
+  if (d.user) {
+    state.user = d.user;
+    $('menu-user').textContent = d.user.username;
+    renderAvatar(d.user);
+    const rename = $('rename-user');
+    if (rename && document.activeElement !== rename) rename.value = d.user.username;
+  } else if (state.user) {
+    state.user.coins = d.coins;
+    if (d.level != null) state.user.level = d.level;
+  }
+  renderCoins();
+  if (!$('screen-menu').classList.contains('hidden')) renderShops();
+  if (d.levelsGained > 0) {
+    const level = d.user?.level ?? d.level ?? state.user?.level;
+    const bonus = d.levelBonus || 0;
+    toast(t('toast.levelUp', { level, coins: bonus }));
+    state.game?.hud?.message?.(t('hud.levelUp', { level }), 'LEVEL UP');
+  }
 }
 
 function renderAvatar(user = state.user) {
@@ -1057,7 +1073,10 @@ async function startGame(kind) {
     state.game = new Game({
       canvas: $('game-canvas'), stage: $('stage'), catalog: C, socket: state.socket,
       onExit: exitGame,
-      onCoins: (coins) => { state.user.coins = coins; renderCoins(); },
+      onCoins: (payload) => {
+        if (payload && typeof payload === 'object') applyCoinPayload(payload);
+        else if (state.user) { state.user.coins = payload; renderCoins(); }
+      },
     });
   }
   const g = state.game;

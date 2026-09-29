@@ -99,15 +99,23 @@ function setupRealtime(io) {
 
   function reward(s, headshot, reason) {
     const mult = db.getCoinMultiplier();
-    const delta = Math.round((COINS_PER_KILL + (headshot ? HEADSHOT_BONUS : 0)) * mult);
-    const user = db.addCoins(s.userId, delta, reason);
-    db.recordKill(s.userId);
+    const killDelta = Math.round((COINS_PER_KILL + (headshot ? HEADSHOT_BONUS : 0)) * mult);
+    db.addCoins(s.userId, killDelta, reason);
+    const leveled = db.recordKill(s.userId) || { levelsGained: 0, bonus: 0, user: null };
+    const user = leveled.user || db.getUserById(s.userId);
+    const delta = killDelta + (leveled.bonus || 0);
     db.updateSession(s.id, { kills: 1, coins: delta });
     s.kills++;
     s.coins += delta;
     s.headshots = (s.headshots || 0) + (headshot ? 1 : 0);
     s.shots = (s.shots || 0) + 1;
-    return { user, delta };
+    return {
+      user,
+      delta,
+      killDelta,
+      levelsGained: leveled.levelsGained || 0,
+      levelBonus: leveled.bonus || 0,
+    };
   }
 
   const MAX_ARENA_PLAYERS = Number(process.env.MAX_ARENA_PLAYERS) || 12;
@@ -375,8 +383,10 @@ function setupRealtime(io) {
       }
       const ss = sessions.get(shooter.id);
       if (ss) {
-        const { user, delta } = reward(ss, head, 'mp_kill');
-        shooterSock?.emit('coins', { coins: user.coins, delta });
+        const { user, delta, levelsGained, levelBonus } = reward(ss, head, 'mp_kill');
+        shooterSock?.emit('coins', {
+          coins: user.coins, delta, user, levelsGained, levelBonus, level: user.level,
+        });
       }
       if (a.mode === 'tdm') a.score[shooter.team]++;
       if (shooter.loadout.includes('rpg')) shooter.rockets = Math.min(6, shooter.rockets + 1);
@@ -580,8 +590,13 @@ function setupRealtime(io) {
       }
       s.killTokens -= 1;
       s.killTimes.push(now);
-      const { user, delta } = reward(s, !!data?.headshot, `sp_kill:${s.difficulty}`);
-      reply({ ok: true, coins: user.coins, delta });
+      const { user, delta, levelsGained, levelBonus } = reward(s, !!data?.headshot, `sp_kill:${s.difficulty}`);
+      socket.emit('coins', {
+        coins: user.coins, delta, user, levelsGained, levelBonus, level: user.level,
+      });
+      reply({
+        ok: true, coins: user.coins, delta, levelsGained, levelBonus, level: user.level, user,
+      });
     });
 
     socket.on('sp:death', () => {

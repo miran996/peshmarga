@@ -89,7 +89,7 @@ const en = {
   'mp.ffaSub': 'Everyone for themselves',
   'mp.tdm': 'Team Deathmatch',
   'mp.tdmSub': 'Red vs blue, first team to 50 kills',
-  'mp.fact1': '+50 coins per kill, +10 for headshots',
+  'mp.fact1': '+15 coins per kill, +10 for headshots · level up = +250 coins',
   'mp.fact2': 'Players auto-join the same live lobby (map preference only if empty)',
   'mp.fact3': 'Press T to chat (Y for team chat)',
   'play.joinArena': 'Join Arena',
@@ -116,7 +116,7 @@ const en = {
 
   // Armory / wardrobe / coins / lb
   'armory.title': 'Armory',
-  'armory.sub': 'Earn 50 coins per kill. Weapons are permanent unlocks.',
+  'armory.sub': 'Earn 15 coins per kill. Level up for +250 coins. Weapons are permanent unlocks.',
   'ward.title': 'Wardrobe',
   'ward.sub': 'Your look is visible to other players and on your first-person arms.',
   'ward.outfits': 'Outfits',
@@ -226,6 +226,9 @@ const en = {
   'toast.startFail': 'Failed to start',
   'toast.kicked': 'Kicked by admin',
   'toast.announce': 'Announcement',
+  'toast.levelUp': 'Level {level}! +{coins} coins',
+  'hud.levelUp': 'LEVEL {level}',
+  'hud.levelUp': 'LEVEL {level}',
 
   // HUD / pause / results
   'hud.reload': 'Press R to reload',
@@ -406,7 +409,7 @@ const ku = {
   'mp.ffaSub': 'هەر کەس بۆ خۆی',
   'mp.tdm': 'شەڕی تیم',
   'mp.tdmSub': 'سوور دژی شین، یەکەم تیم بۆ ٥٠ کوشتن',
-  'mp.fact1': '+٥٠ کۆین بۆ هەر کوشتن، +١٠ بۆ سەر',
+  'mp.fact1': '+١٥ کۆین بۆ هەر کوشتن، +١٠ بۆ سەر · level up = +٢٥٠ کۆین',
   'mp.fact2': 'یاریزانان خۆکار دەچنە هەمان لۆبی (نەخشە تەنها ئەگەر بەتاڵ بێت)',
   'mp.fact3': 'T بۆ چات داگرە (Y بۆ چاتی تیم)',
   'play.joinArena': 'چوونە ناو مەیدان',
@@ -431,7 +434,7 @@ const ku = {
   'lo.ctxMp': 'فرە یاریزان · {mode}. کیتەکەت هەڵبژێرە، پاشان بێوە.',
 
   'armory.title': 'چەکخانە',
-  'armory.sub': '٥٠ کۆین بۆ هەر کوشتن. چەکەکان هەمیشەیین.',
+  'armory.sub': '١٥ کۆین بۆ هەر کوشتن. لە level upدا +٢٥٠ کۆین. چەکەکان هەمیشەیین.',
   'ward.title': 'جلوبەرگ',
   'ward.sub': 'شێوەکەت بۆ یاریزانانی تر و دەستەکانت دیارە.',
   'ward.outfits': 'جلوبەرگەکان',
@@ -537,6 +540,9 @@ const ku = {
   'toast.startFail': 'دەستپێکردن سەرکەوتوو نەبوو',
   'toast.kicked': 'لەلایەن ئەدمینەوە دەرکرایت',
   'toast.announce': 'ئاگاداری',
+  'toast.levelUp': 'Level {level}! +{coins} کۆین',
+  'hud.levelUp': 'LEVEL {level}',
+  'hud.levelUp': 'LEVEL {level}',
 
   'hud.reload': 'R داگرە بۆ پڕکردنەوە',
   'hud.reloadKey': '{key} داگرە بۆ پڕکردنەوە',
@@ -715,7 +721,7 @@ const ar = {
   'mp.ffaSub': 'كل لاعب لنفسه',
   'mp.tdm': 'قتل الفريق',
   'mp.tdmSub': 'أحمر ضد أزرق، أول فريق يصل ٥٠ قتلة',
-  'mp.fact1': '+٥٠ عملة لكل قتلة، +١٠ لإصابة الرأس',
+  'mp.fact1': '+١٥ عملة لكل قتلة، +١٠ لإصابة الرأس · ترقية المستوى = +٢٥٠',
   'mp.fact2': 'ينضم اللاعبون تلقائياً لنفس اللوبي (الخريطة فقط إن كانت فارغة)',
   'mp.fact3': 'اضغط T للدردشة (Y لدردشة الفريق)',
   'play.joinArena': 'دخول الساحة',
@@ -740,7 +746,7 @@ const ar = {
   'lo.ctxMp': 'متعدد · {mode}. اختر معداتك ثم انضم.',
 
   'armory.title': 'مستودع الأسلحة',
-  'armory.sub': '٥٠ عملة لكل قتلة. الأسلحة فتح دائم.',
+  'armory.sub': '١٥ عملة لكل قتلة. ترقية المستوى تعطي +٢٥٠. الأسلحة فتح دائم.',
   'ward.title': 'الزي',
   'ward.sub': 'مظهرك ظاهر للاعبين الآخرين وعلى ذراعيك.',
   'ward.outfits': 'الأزياء',
@@ -846,6 +852,9 @@ const ar = {
   'toast.startFail': 'فشل البدء',
   'toast.kicked': 'طردك المشرف',
   'toast.announce': 'إعلان',
+  'toast.levelUp': 'المستوى {level}! +{coins} عملة',
+  'hud.levelUp': 'LEVEL {level}',
+  'hud.levelUp': 'LEVEL {level}',
 
   'hud.reload': 'اضغط R لإعادة التعبئة',
   'hud.reloadKey': 'اضغط {key} لإعادة التعبئة',

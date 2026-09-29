@@ -107,7 +107,7 @@ Change this before exposing the server anywhere: set `ADMIN_USER` / `ADMIN_PASS`
 | Tab | Scoreboard |
 | Esc | Pause, settings, release mouse |
 
-**Economy:** 50 coins per kill (+10 for a headshot), in both single-player and multiplayer, for every weapon
+**Economy:** 15 coins per kill (+10 for a headshot), in both single-player and multiplayer. Level-ups: 30 kills at level 1, then +20 kills needed each level (50, 70, …); each level-up gifts +250 coins.
 including grenades, knife and airstrikes. Coins are awarded by the server, not the client.
 
 ### Equipment and killstreaks

@@ -164,7 +164,7 @@ export class SinglePlayerMode {
         this.coinsEarned += res.delta;
         g.hud.coinPop(res.delta);
         g.hud.setCoins(res.coins);
-        g.onCoins(res.coins);
+        g.onCoins(res);
       });
     }
     if (killer && !suicide && killer.kills >= this.goal) this.finish(killer);

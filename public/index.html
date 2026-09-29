@@ -97,6 +97,7 @@
         <button class="nav-btn" data-panel="controls" data-i18n="nav.controls">Controls</button>
       </nav>
       <div class="profile">
+        <span class="level-chip" title="Level">Lv <b id="menu-level">1</b></span>
         <span class="coin-chip"><i class="coin"></i><b id="menu-coins">0</b></span>
         <img id="menu-avatar" class="avatar-img hidden" alt="" width="36" height="36" />
         <span id="menu-user" class="username"></span>
@@ -149,7 +150,7 @@
                 <button class="diff" data-mpmode="tdm"><b data-i18n="mp.tdm">Team Deathmatch</b><small data-i18n="mp.tdmSub">Red vs blue, first team to 50 kills</small></button>
               </div>
               <ul class="mp-facts">
-                <li data-i18n="mp.fact1">+50 coins per kill, +10 for headshots</li>
+                <li data-i18n="mp.fact1">+15 coins per kill, +10 for headshots · level up = +250 coins</li>
                 <li data-i18n="mp.fact2">Players auto-join the same live lobby (map preference only if empty)</li>
                 <li data-i18n="mp.fact3">Press T to chat (Y for team chat)</li>
               </ul>
@@ -180,7 +181,7 @@
         <!-- ARMORY -->
         <div class="panel" id="panel-armory">
           <h2 data-i18n="armory.title">Armory</h2>
-          <p class="sub" data-i18n="armory.sub">Earn 50 coins per kill. Weapons are permanent unlocks.</p>
+          <p class="sub" data-i18n="armory.sub">Earn 15 coins per kill. Level up for +250 coins. Weapons are permanent unlocks.</p>
           <div class="shop-grid" id="weapon-grid"></div>
         </div>
 

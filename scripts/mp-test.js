@@ -65,7 +65,7 @@ async function client(acc) {
   ok('shots registered as hits', events.hits >= 4, `(hits=${events.hits})`);
   ok('victim notified of death', events.died);
   ok('kill broadcast to arena', events.killfeed?.weapon === 'pistol', `(${events.killfeed?.killer} -> ${events.killfeed?.victim})`);
-  ok('killer received 50 coins', events.coins?.delta === 50, `(coins=${events.coins?.coins})`);
+  ok('killer received 15 coins', events.coins?.delta === 15, `(coins=${events.coins?.coins})`);
 
   const respawn = await new Promise((r) => { B.s.once('mp:respawn', r); setTimeout(() => r(null), 5000); });
   ok('victim respawned', !!respawn);

@@ -212,9 +212,16 @@ const PERKS = {
   },
 };
 
-const COINS_PER_KILL = 50;
+const COINS_PER_KILL = 15;
 const HEADSHOT_BONUS = 10;
 const STARTING_COINS = 1000;
+/** Coins gifted each time a player levels up. */
+const LEVEL_UP_COINS = 250;
+/** Kills needed while at `level` to reach the next level: L1→30, L2→50, L3→70, … (+20 each). */
+function killsNeededAtLevel(level) {
+  const lv = Math.max(1, Math.floor(Number(level) || 1));
+  return 30 + (lv - 1) * 20;
+}
 
 /**
  * Shoulder / chest patches. stripes: horizontal bands top→bottom; kurdistan draws a sun on the white band.
@@ -337,5 +344,5 @@ const TDM = {
 
 module.exports = {
   WEAPONS, COSMETICS, DIFFICULTY, EQUIPMENT, KILLSTREAKS, PERKS, FLAGS, COIN_PACKS, PAYMENT_METHODS,
-  TDM, COINS_PER_KILL, HEADSHOT_BONUS, STARTING_COINS,
+  TDM, COINS_PER_KILL, HEADSHOT_BONUS, STARTING_COINS, LEVEL_UP_COINS, killsNeededAtLevel,
 };
