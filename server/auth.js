@@ -11,6 +11,9 @@ function loadSecret() {
   fs.mkdirSync(dir, { recursive: true });
   const secret = crypto.randomBytes(48).toString('hex');
   fs.writeFileSync(file, secret, { mode: 0o600 });
+  if (process.env.RENDER || process.env.NODE_ENV === 'production') {
+    console.warn('[auth] JWT_SECRET env is missing — wrote a file secret under DATA_DIR. Prefer a fixed JWT_SECRET env var.');
+  }
   return secret;
 }
 

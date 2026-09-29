@@ -16,6 +16,9 @@ function initDb() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
   db = new DatabaseSync(DB_PATH);
   db.exec('PRAGMA journal_mode = WAL;');
+  // FULL = fsync on commit so signups survive sudden process kills / deploys mid-write.
+  db.exec('PRAGMA synchronous = FULL;');
+  db.exec('PRAGMA temp_store = MEMORY;');
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -340,11 +343,38 @@ function createUser(username, password, opts = {}) {
     const r = db
       .prepare('INSERT INTO users (username, password_hash, is_bot) VALUES (?, ?, ?)')
       .run(username, bcrypt.hashSync(password, 10), isBot);
-    return getUserById(Number(r.lastInsertRowid));
+    const id = Number(r.lastInsertRowid);
+    flushDb();
+    const user = getUserById(id);
+    if (!user) throw httpError(500, 'Account could not be saved. Try again.');
+    return user;
   } catch (err) {
+    if (err.status) throw err;
     if (/UNIQUE/i.test(err.message)) throw httpError(409, 'Username already taken');
     throw err;
   }
+}
+
+/** Force WAL pages onto the main DB file (critical after signup / password / economy writes). */
+function flushDb() {
+  if (!db) return;
+  try {
+    db.exec('PRAGMA wal_checkpoint(TRUNCATE);');
+  } catch (err) {
+    console.error('[db] flush failed:', err.message);
+  }
+}
+
+function getDbInfo() {
+  const users = db.prepare('SELECT COUNT(*) AS c FROM users').get()?.c || 0;
+  let dbBytes = 0;
+  try { dbBytes = fs.statSync(DB_PATH).size; } catch { /* ignore */ }
+  return {
+    dataDir: DATA_DIR,
+    dbPath: DB_PATH,
+    dbBytes,
+    userCount: users,
+  };
 }
 
 /** Change display/login name. Case-insensitive uniqueness — no two players can share a name. */
@@ -386,6 +416,7 @@ function changePassword(userId, currentPassword, newPassword) {
   }
   db.prepare('UPDATE users SET password_hash = ? WHERE id = ?')
     .run(bcrypt.hashSync(newPassword, 10), userId);
+  flushDb();
   return getUserById(userId);
 }
 
@@ -1244,6 +1275,8 @@ function searchUsers(viewerId, query, limit = 12) {
 
 module.exports = {
   initDb,
+  flushDb,
+  getDbInfo,
   httpError,
   getLeaderboard,
   createUser,

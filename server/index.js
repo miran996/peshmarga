@@ -116,9 +116,31 @@ app.post('/api/register', throttle, wrap((req, res) => {
     return res.status(400).json({ error: 'Password must be 6-72 characters.' });
   }
   const user = db.createUser(username, password);
-  issueSession(res, user);
-  res.json({ user });
+  const ip = clientIp(req);
+  const deviceHash = typeof req.body?.deviceHash === 'string' ? req.body.deviceHash.slice(0, 128) : null;
+  db.touchPresence(user.id, { ip, deviceHash });
+  db.flushDb();
+  // Re-read after flush so we never return a member that is not on disk.
+  const saved = db.getUserById(user.id);
+  if (!saved) return res.status(500).json({ error: 'Account could not be saved. Try again.' });
+  issueSession(res, saved);
+  res.json({ user: saved, saved: true });
 }));
+
+app.get('/api/health', (req, res) => {
+  const info = db.getDbInfo();
+  const hasDisk = !!process.env.DATA_DIR;
+  res.json({
+    ok: true,
+    users: info.userCount,
+    dbBytes: info.dbBytes,
+    dataDir: info.dataDir,
+    persistentDisk: hasDisk,
+    warning: hasDisk
+      ? null
+      : 'Set DATA_DIR to a Render persistent disk (e.g. /var/data) or member accounts will be wiped on every deploy.',
+  });
+});
 
 app.post('/api/login', throttle, wrap((req, res) => {
   const { username, password } = req.body || {};
@@ -343,6 +365,7 @@ function lanAddresses() {
 }
 
 server.listen(PORT, HOST, () => {
+  const info = db.getDbInfo();
   console.log('');
   console.log('  STICKMAN WARFARE server running');
   console.log(`  This PC:   http://localhost:${PORT}/`);
@@ -352,5 +375,13 @@ server.listen(PORT, HOST, () => {
     if (!lan.length) console.log('  Network:   no LAN connection found');
   }
   console.log(`  Admin:     http://localhost:${PORT}/admin`);
+  console.log(`  Database:  ${info.dbPath} (${info.userCount} members)`);
+  if (!process.env.DATA_DIR) {
+    console.warn('  WARNING: DATA_DIR is not set. On Render, attach a persistent disk and set DATA_DIR=/var/data');
+    console.warn('           otherwise every deploy wipes all member accounts.');
+  }
+  if (!process.env.JWT_SECRET) {
+    console.warn('  WARNING: JWT_SECRET is not set. Set a fixed secret in Render env or sessions reset when the secret file is lost.');
+  }
   console.log('');
 });

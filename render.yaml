@@ -1,0 +1,28 @@
+# Stickman Warfare / Peshmarga — Render Blueprint
+# After first deploy: Dashboard → your service → Disks → confirm /var/data is mounted.
+# Env JWT_SECRET / ADMIN_PASS should be set in the dashboard (do not commit secrets).
+
+services:
+  - type: web
+    name: peshmarga
+    runtime: node
+    plan: starter
+    region: oregon
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATA_DIR
+        value: /var/data
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ADMIN_USER
+        value: admin
+      - key: ADMIN_PASS
+        sync: false
+    disk:
+      name: peshmarga-data
+      mountPath: /var/data
+      sizeGB: 1
