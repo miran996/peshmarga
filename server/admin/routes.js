@@ -81,20 +81,26 @@ function createAdminRouter({ db, auth, realtime }) {
   }));
 
   router.post('/users/:id/coins', requirePerm(db, 'economy.gift'), wrap((req, res) => {
-    const amount = Number(req.body?.amount);
-    if (!Number.isInteger(amount) || amount === 0 || Math.abs(amount) > 1_000_000) {
+    const amount = db.parseCoinAmount(req.body?.amount);
+    if (amount == null) {
       return res.status(400).json({ error: 'Amount must be a non-zero integer up to 1,000,000.' });
     }
     if (!db.getUserById(Number(req.params.id))) return res.status(404).json({ error: 'User not found' });
     const user = db.addCoins(Number(req.params.id), amount, `admin:${req.adminUser.username}`);
-    realtime.notifyUser(user);
-    res.json({ user });
+    realtime.notifyUser(user, amount);
+    res.json({ user, amount });
   }));
 
   router.post('/gift', requirePerm(db, 'economy.gift'), wrap((req, res) => {
-    const user = db.giftCoinsByUsername(String(req.body?.username || ''), Number(req.body?.amount), req.adminUser.username);
-    realtime.notifyUser(user);
-    res.json({ user });
+    const amount = db.parseCoinAmount(req.body?.amount);
+    if (amount == null) {
+      return res.status(400).json({ error: 'Enter a non-zero amount (e.g. 500). Max 1,000,000.' });
+    }
+    const username = String(req.body?.username || '').trim();
+    if (!username) return res.status(400).json({ error: 'Username required' });
+    const user = db.giftCoinsByUsername(username, amount, req.adminUser.username);
+    realtime.notifyUser(user, amount);
+    res.json({ user, amount });
   }));
 
   // ----- Sessions -----
@@ -109,15 +115,15 @@ function createAdminRouter({ db, auth, realtime }) {
   });
 
   router.post('/coin-orders/:id/fulfill', requirePerm(db, 'orders.fulfill'), wrap((req, res) => {
-    const user = db.fulfillCoinOrder(Number(req.params.id), req.adminUser.username);
-    realtime.notifyUser(user);
+    const { user, coins } = db.fulfillCoinOrder(Number(req.params.id), req.adminUser.username);
+    realtime.notifyUser(user, coins);
     res.json({ user, ok: true });
   }));
 
   /** Alias: Complete = verify payment + credit coins. */
   router.post('/coin-orders/:id/complete', requirePerm(db, 'orders.fulfill'), wrap((req, res) => {
-    const user = db.fulfillCoinOrder(Number(req.params.id), req.adminUser.username);
-    realtime.notifyUser(user);
+    const { user, coins } = db.fulfillCoinOrder(Number(req.params.id), req.adminUser.username);
+    realtime.notifyUser(user, coins);
     res.json({ user, ok: true });
   }));
 

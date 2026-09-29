@@ -68,9 +68,10 @@ export async function renderEconomy(root, state) {
       <div class="block-head"><h2>Gift coins by username</h2></div>
       ${can(state, 'economy.gift') ? `<div class="form-row">
         <input id="g-user" placeholder="username" />
-        <input id="g-amt" type="number" placeholder="amount" />
+        <input id="g-amt" type="number" step="1" value="500" placeholder="500" />
         <button class="btn small primary" id="g-btn">Send</button>
-      </div>` : '<p class="muted">No gift permission</p>'}
+      </div>
+      <p class="muted" id="g-result"></p>` : '<p class="muted">No gift permission</p>'}
     </section>
     <section class="block">
       <h2>Shop price overrides</h2>
@@ -159,9 +160,15 @@ export async function renderEconomy(root, state) {
     } catch (e) { toast(e.message, true); }
   });
   root.querySelector('#g-btn')?.addEventListener('click', async () => {
+    const username = root.querySelector('#g-user').value.trim();
+    const amount = Math.trunc(Number(String(root.querySelector('#g-amt').value || '').replace(/[,+\s]/g, '')));
+    if (!username) { toast('Enter username', true); return; }
+    if (!Number.isFinite(amount) || amount === 0) { toast('Enter a coin amount (e.g. 500)', true); return; }
     try {
-      await api('/api/admin/gift', { username: root.querySelector('#g-user').value.trim(), amount: Number(root.querySelector('#g-amt').value) });
-      toast('Gift sent');
+      const { user } = await api('/api/admin/gift', { username, amount });
+      toast(`Gifted ${amount > 0 ? '+' : ''}${amount.toLocaleString()} → ${user.username} now has ${user.coins.toLocaleString()}`);
+      const result = root.querySelector('#g-result');
+      if (result) result.textContent = `${user.username}: ${user.coins.toLocaleString()} coins`;
     } catch (e) { toast(e.message, true); }
   });
   root.querySelector('#ov-save')?.addEventListener('click', async () => {

@@ -992,8 +992,14 @@ function setupRealtime(io) {
   }, TICK_MS);
 
   return {
-    notifyUser(user) {
-      io.to(`user:${user.id}`).emit('coins', { coins: user.coins, delta: 0, user });
+    notifyUser(user, delta = 0) {
+      if (!user?.id) return;
+      io.to(`user:${user.id}`).emit('coins', {
+        coins: user.coins,
+        delta: Number(delta) || 0,
+        user,
+        level: user.level,
+      });
     },
     notifyFriendEvent,
     getOnlineUserIds,

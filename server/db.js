@@ -473,10 +473,33 @@ function getUserById(id) {
   return u ? sanitizeUser(u) : null;
 }
 
-function addCoins(userId, delta, reason) {
-  db.prepare('UPDATE users SET coins = MAX(0, coins + ?) WHERE id = ?').run(delta, userId);
-  db.prepare('INSERT INTO coin_log (user_id, delta, reason) VALUES (?, ?, ?)').run(userId, delta, reason);
-  return getUserById(userId);
+function parseCoinAmount(raw) {
+  const cleaned = typeof raw === 'string'
+    ? raw.replace(/[,+\s]/g, '').trim()
+    : raw;
+  const n = Number(cleaned);
+  if (!Number.isFinite(n)) return null;
+  const amount = Math.trunc(n);
+  if (amount === 0 || Math.abs(amount) > 1_000_000) return null;
+  return amount;
+}
+
+function addCoins(userId, delta, reason, { flush = true } = {}) {
+  const amount = Number(delta);
+  if (!Number.isFinite(amount) || amount === 0) {
+    throw httpError(400, 'Amount must be a non-zero number.');
+  }
+  const id = Number(userId);
+  const r = db.prepare(
+    'UPDATE users SET coins = CASE WHEN coins + ? < 0 THEN 0 ELSE coins + ? END WHERE id = ?'
+  ).run(amount, amount, id);
+  if (!r.changes) throw httpError(404, 'User not found');
+  db.prepare('INSERT INTO coin_log (user_id, delta, reason) VALUES (?, ?, ?)')
+    .run(id, amount, reason || 'adjust');
+  if (flush) flushDb();
+  const user = getUserById(id);
+  if (!user) throw httpError(500, 'Coins updated but user could not be reloaded');
+  return user;
 }
 
 function getEffectivePrice(kind, itemId, baseCost) {
@@ -531,6 +554,7 @@ function purchase(userId, kind, itemId) {
   db.prepare('INSERT INTO coin_log (user_id, delta, reason) VALUES (?, ?, ?)').run(
     userId, -cost, `purchase:${kind}:${itemId}`
   );
+  flushDb();
   return getUserById(userId);
 }
 
@@ -698,10 +722,21 @@ function fulfillCoinOrder(orderId, adminUsername) {
   const o = db.prepare('SELECT * FROM coin_orders WHERE id = ?').get(orderId);
   if (!o) throw httpError(404, 'Order not found');
   if (o.status !== 'pending') throw httpError(400, 'Order already handled');
-  db.prepare(
-    `UPDATE coin_orders SET status = 'fulfilled', fulfilled_at = datetime('now'), fulfilled_by = ? WHERE id = ?`
-  ).run(adminUsername, orderId);
-  return addCoins(o.user_id, o.coins, `coin_order:${o.ref_code}:${o.pack_id}`);
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    const upd = db.prepare(
+      `UPDATE coin_orders SET status = 'fulfilled', fulfilled_at = datetime('now'), fulfilled_by = ?
+       WHERE id = ? AND status = 'pending'`
+    ).run(adminUsername, orderId);
+    if (!upd.changes) throw httpError(400, 'Order already handled');
+    const user = addCoins(o.user_id, o.coins, `coin_order:${o.ref_code}:${o.pack_id}`, { flush: false });
+    db.exec('COMMIT');
+    flushDb();
+    return { user, coins: o.coins };
+  } catch (err) {
+    try { db.exec('ROLLBACK'); } catch { /* ignore */ }
+    throw err;
+  }
 }
 
 function rejectCoinOrder(orderId, adminUsername) {
@@ -901,12 +936,13 @@ function clearEconomyOverride(kind, itemId) {
 }
 
 function giftCoinsByUsername(username, amount, by) {
-  const u = db.prepare('SELECT id FROM users WHERE username = ? COLLATE NOCASE').get(username);
+  const u = db.prepare('SELECT id FROM users WHERE username = ? COLLATE NOCASE').get(String(username || '').trim());
   if (!u) throw httpError(404, 'User not found');
-  if (!Number.isInteger(amount) || amount === 0 || Math.abs(amount) > 1_000_000) {
+  const parsed = parseCoinAmount(amount);
+  if (parsed == null) {
     throw httpError(400, 'Amount must be a non-zero integer up to 1,000,000.');
   }
-  return addCoins(u.id, amount, `gift:${by || 'admin'}`);
+  return addCoins(u.id, parsed, `gift:${by || 'admin'}`);
 }
 
 function logChat({ userId, username, arenaKey, teamOnly, text }) {
@@ -1286,6 +1322,7 @@ module.exports = {
   clearAvatar,
   verifyUser,
   getUserById,
+  parseCoinAmount,
   addCoins,
   getEffectivePrice,
   applyCatalogPrices,

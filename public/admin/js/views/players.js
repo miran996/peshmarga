@@ -89,9 +89,10 @@ export async function renderPlayers(root, state) {
         <p class="muted">IP ${esc(u.lastIp || '—')} · Device ${esc((u.deviceHash || '').slice(0, 12) || '—')}
           ${live?.arena ? ` · In ${esc(live.arena.mapName)} (${esc(live.arena.mode)})` : ''}</p>
         ${can(state, 'economy.gift') ? `<div class="form-row">
-          <input id="gift-amt" type="number" placeholder="+500" />
+          <input id="gift-amt" type="number" step="1" value="500" placeholder="500" />
           <button class="btn small primary" id="gift-btn">Gift coins</button>
-        </div>` : ''}
+        </div>
+        <p class="muted">Adds coins instantly to this account (saved to database).</p>` : ''}
         ${can(state, '*') ? `<div class="form-row">
           <select id="role-sel">
             <option value="none">Player</option>
@@ -138,9 +139,18 @@ export async function renderPlayers(root, state) {
       `;
       if (can(state, '*')) pane.querySelector('#role-sel').value = u.role || 'none';
       pane.querySelector('#gift-btn')?.addEventListener('click', async () => {
+        const raw = pane.querySelector('#gift-amt')?.value;
+        const amount = Math.trunc(Number(String(raw || '').replace(/[,+\s]/g, '')));
+        if (!Number.isFinite(amount) || amount === 0) {
+          toast('Enter a coin amount (e.g. 500)', true);
+          return;
+        }
         try {
-          await api('/api/admin/gift', { username: u.username, amount: Number(pane.querySelector('#gift-amt').value) });
-          toast('Gifted');
+          const { user } = await api(`/api/admin/users/${u.id}/coins`, { amount });
+          toast(`Gifted ${amount > 0 ? '+' : ''}${amount.toLocaleString()} → ${user.coins.toLocaleString()} coins`);
+          const idx = users.findIndex((x) => x.id === user.id);
+          if (idx >= 0) users[idx] = { ...users[idx], coins: user.coins };
+          drawList();
           loadProfile(id);
         } catch (e) { toast(e.message, true); }
       });
