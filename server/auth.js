@@ -5,10 +5,10 @@ const path = require('path');
 
 function loadSecret() {
   if (process.env.JWT_SECRET) return process.env.JWT_SECRET;
-  const dir = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
-  const file = path.join(dir, '.jwt-secret');
+  const { DATA_DIR } = require('./paths');
+  const file = path.join(DATA_DIR, '.jwt-secret');
   if (fs.existsSync(file)) return fs.readFileSync(file, 'utf8').trim();
-  fs.mkdirSync(dir, { recursive: true });
+  fs.mkdirSync(DATA_DIR, { recursive: true });
   const secret = crypto.randomBytes(48).toString('hex');
   fs.writeFileSync(file, secret, { mode: 0o600 });
   if (process.env.RENDER || process.env.NODE_ENV === 'production') {

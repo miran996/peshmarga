@@ -2,12 +2,11 @@ const { DatabaseSync } = require('node:sqlite');
 const path = require('path');
 const fs = require('fs');
 const bcrypt = require('bcryptjs');
-const {
-  WEAPONS, COSMETICS, FLAGS, COIN_PACKS, PAYMENT_METHODS, STARTING_COINS,
+const { WEAPONS, COSMETICS, FLAGS, COIN_PACKS, PAYMENT_METHODS, STARTING_COINS,
   LEVEL_UP_COINS, killsNeededAtLevel,
 } = require('./catalog');
+const { DATA_DIR } = require('./paths');
 
-const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
 const DB_PATH = path.join(DATA_DIR, 'game.db');
 
 let db;

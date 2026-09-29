@@ -2,15 +2,33 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => (
   { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
 ));
 
+const TOKEN_KEY = 'fps_auth_token';
+
+function getAuthToken() {
+  try { return localStorage.getItem(TOKEN_KEY) || ''; } catch { return ''; }
+}
+
+function setAuthToken(token) {
+  try {
+    if (token) localStorage.setItem(TOKEN_KEY, token);
+    else localStorage.removeItem(TOKEN_KEY);
+  } catch { /* ignore */ }
+}
+
 async function api(path, body, method) {
+  const headers = {};
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  const token = getAuthToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
   const res = await fetch(path, {
     method: method || (body !== undefined ? 'POST' : 'GET'),
-    headers: body !== undefined ? { 'Content-Type': 'application/json' } : {},
+    headers,
     credentials: 'same-origin',
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw Object.assign(new Error(data.error || res.statusText), { status: res.status });
+  if (data.token) setAuthToken(data.token);
   return data;
 }
 
@@ -41,4 +59,4 @@ function can(state, perm) {
   return state.perms.includes(perm);
 }
 
-export { api, toast, esc, fmtDate, fmtDur, can };
+export { api, toast, esc, fmtDate, fmtDur, can, getAuthToken, setAuthToken };

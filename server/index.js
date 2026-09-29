@@ -10,6 +10,7 @@ const auth = require('./auth');
 const catalog = require('./catalog');
 const { setupRealtime } = require('./realtime');
 const MapLib = require('../shared/map');
+const { DATA_DIR } = require('./paths');
 
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
@@ -37,7 +38,6 @@ function realtimeNotify(user) {
   try { live.realtime?.notifyUser(user); } catch { /* ignore */ }
 }
 
-const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data');
 app.use('/avatars', express.static(path.join(DATA_DIR, 'avatars'), {
   maxAge: '1d',
   setHeaders: (res) => res.setHeader('Cache-Control', 'public, max-age=86400'),
@@ -93,15 +93,28 @@ function throttle(req, res, next) {
   next();
 }
 
-function issueSession(res, user) {
-  const secure = process.env.COOKIE_SECURE === '1'
+function cookieSecure() {
+  return process.env.COOKIE_SECURE === '1'
     || process.env.NODE_ENV === 'production'
     || process.env.RENDER === 'true';
-  res.cookie(auth.TOKEN_COOKIE, auth.signToken(user), {
+}
+
+function issueSession(res, user) {
+  const token = auth.signToken(user);
+  res.cookie(auth.TOKEN_COOKIE, token, {
     httpOnly: true,
     sameSite: 'lax',
-    secure,
+    secure: cookieSecure(),
     maxAge: 7 * 24 * 3600 * 1000,
+  });
+  return token;
+}
+
+function clearSession(res) {
+  res.clearCookie(auth.TOKEN_COOKIE, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: cookieSecure(),
   });
 }
 
@@ -123,13 +136,14 @@ app.post('/api/register', throttle, wrap((req, res) => {
   // Re-read after flush so we never return a member that is not on disk.
   const saved = db.getUserById(user.id);
   if (!saved) return res.status(500).json({ error: 'Account could not be saved. Try again.' });
-  issueSession(res, saved);
-  res.json({ user: saved, saved: true });
+  const token = issueSession(res, saved);
+  res.json({ user: saved, token, saved: true });
 }));
 
 app.get('/api/health', (req, res) => {
   const info = db.getDbInfo();
-  const hasDisk = !!process.env.DATA_DIR;
+  const onRenderDisk = info.dataDir === '/var/data' || info.dataDir.startsWith('/var/data/');
+  const hasDisk = !!process.env.DATA_DIR || onRenderDisk;
   res.json({
     ok: true,
     users: info.userCount,
@@ -138,7 +152,7 @@ app.get('/api/health', (req, res) => {
     persistentDisk: hasDisk,
     warning: hasDisk
       ? null
-      : 'Set DATA_DIR to a Render persistent disk (e.g. /var/data) or member accounts will be wiped on every deploy.',
+      : 'Set DATA_DIR=/var/data and attach a Render Disk, or member accounts wipe on every deploy.',
   });
 });
 
@@ -160,8 +174,8 @@ app.post('/api/login', throttle, wrap((req, res) => {
     }
   }
   db.touchPresence(user.id, { ip, deviceHash });
-  issueSession(res, user);
-  res.json({ user });
+  const token = issueSession(res, user);
+  res.json({ user, token });
 }));
 
 app.post('/api/logout', (req, res) => {
@@ -171,7 +185,7 @@ app.post('/api/logout', (req, res) => {
     db.clearPresence(uid);
     realtime.disconnectUser?.(uid);
   }
-  res.clearCookie(auth.TOKEN_COOKIE);
+  clearSession(res);
   res.json({ ok: true });
 });
 
@@ -219,18 +233,18 @@ app.post('/api/me/username', auth.authMiddleware, wrap((req, res) => {
     return res.status(400).json({ error: 'Username must be 3-16 letters, numbers or underscores.' });
   }
   const user = db.changeUsername(req.user.id, username);
-  issueSession(res, user);
+  const token = issueSession(res, user);
   realtime.renameUser(user.id, user.username);
   realtime.notifyUser(user);
-  res.json({ user });
+  res.json({ user, token });
 }));
 
 app.post('/api/me/password', auth.authMiddleware, wrap((req, res) => {
   const currentPassword = req.body?.currentPassword;
   const newPassword = req.body?.newPassword;
   const user = db.changePassword(req.user.id, currentPassword, newPassword);
-  issueSession(res, user);
-  res.json({ ok: true, user });
+  const token = issueSession(res, user);
+  res.json({ ok: true, user, token });
 }));
 
 app.post('/api/shop/buy', auth.authMiddleware, wrap((req, res) => {

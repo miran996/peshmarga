@@ -36,15 +36,33 @@ initI18n();
 bindLangSelect($('auth-lang'));
 bindLangSelect($('menu-lang'));
 
+const TOKEN_KEY = 'fps_auth_token';
+
+function getAuthToken() {
+  try { return localStorage.getItem(TOKEN_KEY) || ''; } catch { return ''; }
+}
+
+function setAuthToken(token) {
+  try {
+    if (token) localStorage.setItem(TOKEN_KEY, token);
+    else localStorage.removeItem(TOKEN_KEY);
+  } catch { /* ignore */ }
+}
+
 async function api(path, body, method) {
+  const headers = {};
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  const token = getAuthToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
   const res = await fetch(path, {
     method: method || (body !== undefined ? 'POST' : 'GET'),
-    headers: body !== undefined ? { 'Content-Type': 'application/json' } : {},
+    headers,
     credentials: 'same-origin',
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw Object.assign(new Error(data.error || res.statusText), { status: res.status });
+  if (data.token) setAuthToken(data.token);
   return data;
 }
 
@@ -86,13 +104,20 @@ $('auth-form').addEventListener('submit', async (e) => {
   }
   $('auth-submit').disabled = true;
   try {
-    const { user } = await api(authMode === 'register' ? '/api/register' : '/api/login', {
+    const { user, token } = await api(authMode === 'register' ? '/api/register' : '/api/login', {
       username, password, deviceHash: getDeviceHash(),
     });
+    if (token) setAuthToken(token);
     $('auth-pass').value = $('auth-confirm').value = '';
-    enterMenu(user);
-    if (authMode === 'register') toast(t('auth.welcome', { name: user.username }));
-    if (user.isAdmin) toast(t('toast.adminPlay'));
+    try {
+      enterMenu(user);
+      if (authMode === 'register') toast(t('auth.welcome', { name: user.username }));
+      if (user.isAdmin) toast(t('toast.adminPlay'));
+    } catch (menuErr) {
+      console.error(menuErr);
+      toast(menuErr.message || t('toast.startFail'), true);
+      show('screen-menu');
+    }
   } catch (err) {
     $('auth-error').textContent = err.message;
   } finally {
@@ -102,6 +127,7 @@ $('auth-form').addEventListener('submit', async (e) => {
 
 $('logout-btn').addEventListener('click', async () => {
   await api('/api/logout', {}).catch(() => {});
+  setAuthToken('');
   state.socket?.disconnect();
   state.socket = null;
   state.user = null;
@@ -115,7 +141,12 @@ $('admin-panel-btn')?.addEventListener('click', () => {
 // ---------------------------------------------------------------- socket
 function connectSocket() {
   state.socket?.disconnect();
-  const s = window.io({ transports: ['websocket', 'polling'], withCredentials: true });
+  const token = getAuthToken();
+  const s = window.io({
+    transports: ['websocket', 'polling'],
+    withCredentials: true,
+    auth: token ? { token } : {},
+  });
   s.on('coins', (d) => {
     applyCoinPayload(d);
   });
@@ -163,27 +194,29 @@ function connectSocket() {
 // ---------------------------------------------------------------- menu
 function enterMenu(user) {
   state.user = user;
-  connectSocket();
+  try { connectSocket(); } catch (e) { console.warn('socket', e); }
   $('menu-user').textContent = user.username;
-  renderAvatar(user);
+  try { renderAvatar(user); } catch { /* ignore */ }
   const rename = $('rename-user');
   if (rename) rename.value = user.username;
   const adminBtn = $('admin-panel-btn');
   if (adminBtn) adminBtn.classList.toggle('hidden', !user.isAdmin);
   const saved = localStorage.getItem('fps_primary');
-  const W = state.catalog.weapons;
+  const W = state.catalog?.weapons || {};
   if (saved && user.ownedWeapons.includes(saved)) state.primary = saved;
   else if (saved === '') state.primary = null;
   else state.primary = user.ownedWeapons.find((w) => W[w]?.slot === 'primary') || null;
   renderCoins();
-  renderShops();
-  renderMaps();
+  try { renderShops(); } catch (e) { console.warn('shops', e); }
+  try { renderMaps(); } catch (e) { console.warn('maps', e); }
   show('screen-menu');
-  refreshMapCounts();
-  if (!state.preview) state.preview = new Preview($('preview-canvas'));
-  state.preview.setCosmetic(state.catalog.cosmetics[user.equippedCosmetic]);
-  state.preview.setFlag(state.catalog.flags?.[user.equippedFlag]);
-  state.preview.setWeapon(loadoutIds()[0]);
+  try { refreshMapCounts(); } catch { /* ignore */ }
+  try {
+    if (!state.preview) state.preview = new Preview($('preview-canvas'));
+    state.preview.setCosmetic(state.catalog?.cosmetics?.[user.equippedCosmetic]);
+    state.preview.setFlag(state.catalog?.flags?.[user.equippedFlag]);
+    state.preview.setWeapon(loadoutIds()[0]);
+  } catch (e) { console.warn('preview', e); }
 }
 
 function renderCoins() {
@@ -1456,6 +1489,15 @@ renderKeybinds();
     document.body.innerHTML = '<p style="padding:40px">Server unreachable. Is it running?</p>';
     return;
   }
+  try {
+    const health = await api('/api/health');
+    if (health?.warning) {
+      const box = $('auth-error');
+      if (box && !getAuthToken()) {
+        box.textContent = t('auth.persistWarn');
+      }
+    }
+  } catch { /* ignore */ }
   try {
     const { user } = await api('/api/me');
     enterMenu(user);

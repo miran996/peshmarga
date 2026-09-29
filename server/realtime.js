@@ -63,7 +63,10 @@ function setupRealtime(io) {
 
   io.use((socket, next) => {
     const cookies = parseCookies(socket.request.headers.cookie || '');
-    const payload = verifyToken(cookies[TOKEN_COOKIE]);
+    const header = socket.request.headers.authorization || '';
+    const bearer = header.startsWith('Bearer ') ? header.slice(7) : null;
+    const token = socket.handshake?.auth?.token || bearer || cookies[TOKEN_COOKIE];
+    const payload = verifyToken(token);
     if (!payload) return next(new Error('unauthorized'));
     socket.user = payload;
     next();

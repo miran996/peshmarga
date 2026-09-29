@@ -21,6 +21,7 @@ const en = {
   'auth.deploy': 'Deploy',
   'auth.enlist': 'Enlist',
   'auth.hint': 'New recruits receive <b>1,000 coins</b> and a sidearm.',
+  'auth.persistWarn': 'Server storage is temporary — ask admin to attach a Render Disk or accounts may reset after updates.',
   'auth.passMismatch': 'Passwords do not match.',
   'auth.welcome': 'Welcome, {name}. 1,000 coins deposited.',
 
@@ -345,6 +346,7 @@ const ku = {
   'auth.deploy': 'دەستپێکردن',
   'auth.enlist': 'تۆمارکردن',
   'auth.hint': 'ئەندامی نوێ <b>١٬٠٠٠ کۆین</b> و چەکێکی دەستی وەردەگرێت.',
+  'auth.persistWarn': 'کۆگای سێرڤەر کاتیە — Disk لە Render زیاد بکە يان حسابەکان دوای update دەسڕێنەوە.',
   'auth.passMismatch': 'وشەکانی نهێنی یەک ناگرنەوە.',
   'auth.welcome': 'بەخێربێیت، {name}. ١٬٠٠٠ کۆین زیادکرا.',
 

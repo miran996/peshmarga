@@ -1,4 +1,4 @@
-import { api, toast, can } from './api.js';
+import { api, toast, can, setAuthToken } from './api.js';
 import { renderDashboard } from './views/dashboard.js';
 import { renderPlayers } from './views/players.js';
 import { renderEconomy } from './views/economy.js';
@@ -74,6 +74,7 @@ async function render() {
 
 $('a-logout').addEventListener('click', async () => {
   await api('/api/logout', {}).catch(() => {});
+  setAuthToken('');
   showLogin();
 });
 
