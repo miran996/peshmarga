@@ -90,9 +90,9 @@ $('auth-form').addEventListener('submit', async (e) => {
       username, password, deviceHash: getDeviceHash(),
     });
     $('auth-pass').value = $('auth-confirm').value = '';
-    if (user.isAdmin) return location.replace('/admin');
     enterMenu(user);
     if (authMode === 'register') toast(t('auth.welcome', { name: user.username }));
+    if (user.isAdmin) toast(t('toast.adminPlay'));
   } catch (err) {
     $('auth-error').textContent = err.message;
   } finally {
@@ -106,6 +106,10 @@ $('logout-btn').addEventListener('click', async () => {
   state.socket = null;
   state.user = null;
   show('screen-auth');
+});
+
+$('admin-panel-btn')?.addEventListener('click', () => {
+  location.assign('/admin');
 });
 
 // ---------------------------------------------------------------- socket
@@ -164,6 +168,8 @@ function enterMenu(user) {
   renderAvatar(user);
   const rename = $('rename-user');
   if (rename) rename.value = user.username;
+  const adminBtn = $('admin-panel-btn');
+  if (adminBtn) adminBtn.classList.toggle('hidden', !user.isAdmin);
   const saved = localStorage.getItem('fps_primary');
   const W = state.catalog.weapons;
   if (saved && user.ownedWeapons.includes(saved)) state.primary = saved;
@@ -1452,7 +1458,6 @@ renderKeybinds();
   }
   try {
     const { user } = await api('/api/me');
-    if (user.isAdmin) return location.replace('/admin');
     enterMenu(user);
   } catch {
     show('screen-auth');

@@ -289,15 +289,25 @@ function sanitizeUser(u) {
   let ownedFlags = ['none'];
   try { ownedFlags = JSON.parse(u.owned_flags || '["none"]'); } catch { /* keep default */ }
   if (!ownedFlags.includes('none')) ownedFlags = ['none', ...ownedFlags];
+  let ownedWeapons = ['pistol'];
+  try {
+    const w = JSON.parse(u.owned_weapons || '["pistol"]');
+    if (Array.isArray(w) && w.length) ownedWeapons = w;
+  } catch { /* keep default */ }
+  let ownedCosmetics = ['classic'];
+  try {
+    const c = JSON.parse(u.owned_cosmetics || '["classic"]');
+    if (Array.isArray(c) && c.length) ownedCosmetics = c;
+  } catch { /* keep default */ }
   const role = u.role && u.role !== 'none' ? u.role : (u.is_admin ? 'super' : 'none');
   const avatar = u.avatar || null;
   return {
     id: u.id,
     username: u.username,
     coins: u.coins,
-    ownedWeapons: JSON.parse(u.owned_weapons),
-    ownedCosmetics: JSON.parse(u.owned_cosmetics),
-    equippedCosmetic: u.equipped_cosmetic,
+    ownedWeapons,
+    ownedCosmetics,
+    equippedCosmetic: ownedCosmetics.includes(u.equipped_cosmetic) ? u.equipped_cosmetic : ownedCosmetics[0],
     ownedFlags,
     equippedFlag: u.equipped_flag || 'none',
     role,

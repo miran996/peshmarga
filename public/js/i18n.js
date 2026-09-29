@@ -35,6 +35,8 @@ const en = {
   'nav.settings': 'Settings',
   'nav.controls': 'Controls',
   'nav.logout': 'Log out',
+  'nav.admin': 'Admin',
+  'toast.adminPlay': 'Staff account — use Admin for the panel, or play from this menu.',
   'nav.lang': 'Language',
 
   // Play
@@ -356,6 +358,8 @@ const ku = {
   'nav.settings': 'ڕێکخستنەکان',
   'nav.controls': 'کۆنترۆڵەکان',
   'nav.logout': 'دەرچوون',
+  'nav.admin': 'ئەدمین',
+  'toast.adminPlay': 'هەژماری ستاف — Admin بۆ پانێڵ، یان لێرەوە یاری بکە.',
   'nav.lang': 'زمان',
 
   'play.title': 'دەسپێکردن',
@@ -668,6 +672,8 @@ const ar = {
   'nav.settings': 'الإعدادات',
   'nav.controls': 'التحكم',
   'nav.logout': 'خروج',
+  'nav.admin': 'المشرف',
+  'toast.adminPlay': 'حساب طاقم — Admin للوحة، أو العب من هذه القائمة.',
   'nav.lang': 'اللغة',
 
   'play.title': 'انطلاق',

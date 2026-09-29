@@ -31,6 +31,12 @@ function parseCookies(str) {
   return out;
 }
 
+function socketClientIp(socket) {
+  const xf = socket.handshake?.headers?.['x-forwarded-for'];
+  if (typeof xf === 'string' && xf.trim()) return xf.split(',')[0].trim().slice(0, 64);
+  return String(socket.handshake?.address || '').slice(0, 64);
+}
+
 const finite = (...vals) => vals.every((v) => typeof v === 'number' && Number.isFinite(v));
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
@@ -512,7 +518,7 @@ function setupRealtime(io) {
     }
     socket.user.id = uid;
     socket.join(`user:${uid}`);
-    const ip = socket.handshake.address || '';
+    const ip = socketClientIp(socket);
     db.touchPresence(uid, { ip });
     broadcastPresence(uid, true);
     const me = () => players.get(socket.id);
@@ -617,7 +623,7 @@ function setupRealtime(io) {
       if (typeof ack !== 'function') return;
       const user = db.getUserById(socket.user.id);
       if (!user) return ack({ ok: false, error: 'No account' });
-      const ip = socket.handshake.address || '';
+      const ip = socketClientIp(socket);
       const deviceHash = typeof data?.deviceHash === 'string' ? data.deviceHash.slice(0, 128) : user.deviceHash;
       const hardBan = db.findActiveBan({ userId: user.id, ip, deviceHash });
       if (hardBan && hardBan.ban_type !== 'shadow') {

@@ -20,6 +20,8 @@ db.closeDanglingSessions();
 
 const app = express();
 app.disable('x-powered-by');
+/** Render / Cloudflare sit behind a proxy — without this, req.ip is shared and login throttle locks everyone out. */
+app.set('trust proxy', 1);
 app.use(cookieParser());
 
 const live = { realtime: null, adminRouter: null };
@@ -68,22 +70,38 @@ app.use('/shared', express.static(path.join(ROOT, 'shared'), noCache));
 app.use('/vendor/three', express.static(path.join(ROOT, 'node_modules', 'three'), { maxAge: '7d' }));
 app.use(express.static(path.join(ROOT, 'public'), { index: 'index.html', ...noCache }));
 
-// Simple in-memory login throttle: 10 failed attempts per minute per IP.
+// Login throttle per client IP (10 fails / minute). Successful logins do not count.
 const attempts = new Map();
+function clientIp(req) {
+  const xf = req.headers['x-forwarded-for'];
+  if (typeof xf === 'string' && xf.trim()) return xf.split(',')[0].trim().slice(0, 64);
+  return String(req.ip || req.socket?.remoteAddress || 'unknown');
+}
 function throttle(req, res, next) {
-  const key = req.ip;
+  const key = clientIp(req);
   const now = Date.now();
   const entry = attempts.get(key) || { count: 0, reset: now + 60_000 };
   if (now > entry.reset) { entry.count = 0; entry.reset = now + 60_000; }
   attempts.set(key, entry);
-  if (entry.count >= 10) return res.status(429).json({ error: 'Too many attempts. Try again in a minute.' });
-  res.on('finish', () => { if (res.statusCode >= 400) entry.count++; });
+  if (entry.count >= 10) {
+    return res.status(429).json({ error: 'Too many attempts. Try again in a minute.' });
+  }
+  res.on('finish', () => {
+    if (res.statusCode === 401 || res.statusCode === 403) entry.count++;
+    else if (res.statusCode < 400) entry.count = 0;
+  });
   next();
 }
 
 function issueSession(res, user) {
+  const secure = process.env.COOKIE_SECURE === '1'
+    || process.env.NODE_ENV === 'production'
+    || process.env.RENDER === 'true';
   res.cookie(auth.TOKEN_COOKIE, auth.signToken(user), {
-    httpOnly: true, sameSite: 'lax', maxAge: 7 * 24 * 3600 * 1000,
+    httpOnly: true,
+    sameSite: 'lax',
+    secure,
+    maxAge: 7 * 24 * 3600 * 1000,
   });
 }
 
@@ -109,7 +127,7 @@ app.post('/api/login', throttle, wrap((req, res) => {
   }
   const user = db.verifyUser(username, password);
   if (!user) return res.status(401).json({ error: 'Invalid username or password.' });
-  const ip = req.ip || req.socket?.remoteAddress || '';
+  const ip = clientIp(req);
   const deviceHash = typeof req.body?.deviceHash === 'string' ? req.body.deviceHash.slice(0, 128) : null;
   // Super staff must never be locked out by IP/device bans (self-ban footgun).
   const staffImmune = user.role === 'super' || user.role === 'accountant' || user.isAdmin;
@@ -168,7 +186,7 @@ app.get('/api/arenas', auth.authMiddleware, (req, res) => res.json(realtime.getM
 app.get('/api/me', auth.authMiddleware, wrap((req, res) => {
   const user = db.getUserById(req.user.id);
   if (!user) return res.status(401).json({ error: 'Account no longer exists' });
-  const ip = req.ip || req.socket?.remoteAddress || '';
+  const ip = clientIp(req);
   db.touchPresence(user.id, { ip, deviceHash: user.deviceHash });
   res.json({ user });
 }));
