@@ -5,6 +5,7 @@ import { renderEconomy } from './views/economy.js';
 import { renderModeration } from './views/moderation.js';
 import { renderLiveops } from './views/liveops.js';
 import { renderOrders } from './views/orders.js';
+import { renderAccount } from './views/account.js';
 
 const state = { user: null, role: 'none', perms: [], view: 'dashboard' };
 const $ = (id) => document.getElementById(id);
@@ -16,6 +17,7 @@ const NAV = [
   { id: 'economy', label: 'Economy', perm: 'economy.view' },
   { id: 'moderation', label: 'Moderation', perm: 'moderation.view' },
   { id: 'liveops', label: 'LiveOps', perm: 'dashboard.view' },
+  { id: 'account', label: 'Account', perm: 'dashboard.view' },
 ];
 
 function showLogin() {
@@ -49,6 +51,7 @@ async function render() {
   const titles = {
     dashboard: 'Dashboard', orders: 'Coin Orders', players: 'Players',
     economy: 'Economy', moderation: 'Moderation', liveops: 'LiveOps',
+    account: 'Account',
   };
   $('view-title').textContent = titles[state.view] || 'Admin';
   const root = $('view-root');
@@ -60,6 +63,7 @@ async function render() {
     else if (state.view === 'economy') await renderEconomy(root, state);
     else if (state.view === 'moderation') await renderModeration(root, state);
     else if (state.view === 'liveops') await renderLiveops(root, state);
+    else if (state.view === 'account') await renderAccount(root, state);
     refreshPendingBadge();
   } catch (err) {
     if (err.status === 401 || err.status === 403) return showLogin();

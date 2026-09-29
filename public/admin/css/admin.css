@@ -145,6 +145,11 @@ table.data td.player-name { white-space: normal; line-height: 1.35; }
 table.data td.player-name .player-name-text { display: inline-block; vertical-align: middle; margin-inline-end: 6px; }
 table.data td.num { white-space: nowrap; width: 1%; }
 .profile-pane { border: 1px solid var(--admin-line); padding: 14px; background: #0e1014; }
+.admin-view .avatar-preview {
+  width: 72px; height: 72px; border-radius: 50%; border: 1px solid var(--admin-line);
+  background: #121416 center/cover no-repeat; flex-shrink: 0;
+}
+.admin-view .avatar-preview.empty { background-color: #1a1c20; background-image: none; }
 .hidden { display: none !important; }
 
 @media (max-width: 1100px) {
