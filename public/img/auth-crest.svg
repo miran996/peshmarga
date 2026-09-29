@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 140" fill="none">
+  <defs>
+    <linearGradient id="g" x1="20" y1="10" x2="100" y2="130" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#f0d078"/>
+      <stop offset="0.45" stop-color="#d4a84a"/>
+      <stop offset="1" stop-color="#8a6a28"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="3" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <path filter="url(#glow)" d="M60 8 L104 28 V72 C104 104 84 124 60 132 C36 124 16 104 16 72 V28 Z" stroke="url(#g)" stroke-width="5" fill="rgba(20,18,12,0.55)"/>
+  <path d="M60 22 L92 36 V70 C92 94 76 110 60 116 C44 110 28 94 28 70 V36 Z" stroke="#e8c56a" stroke-width="2" fill="rgba(40,36,22,0.35)"/>
+  <!-- stickman rifleman -->
+  <g fill="#2d6b3a" stroke="#1a3d22" stroke-width="1.2">
+    <circle cx="58" cy="48" r="7"/>
+    <path d="M58 56 L58 82 M58 64 L46 74 M58 64 L72 72 M58 82 L50 102 M58 82 L68 102"/>
+    <rect x="70" y="60" width="22" height="3.5" rx="1" fill="#3a7a45"/>
+    <rect x="88" y="57" width="4" height="9" rx="1" fill="#3a7a45"/>
+  </g>
+</svg>

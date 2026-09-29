@@ -1,0 +1,25 @@
+{
+  "name": "stickman-fps",
+  "version": "1.0.0",
+  "description": "Cinematic Stickman FPS — single-player & multiplayer",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node --no-warnings=ExperimentalWarning server/index.js",
+    "test": "node scripts/check-maps.js && node scripts/smoke-test.js && node scripts/mp-test.js && node scripts/map-arena-test.js && node scripts/features-test.js && node scripts/round-test.js && node scripts/admin-test.js",
+    "dummy": "node scripts/dummy-player.js"
+  },
+  "engines": {
+    "node": ">=22.5"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.7",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "socket.io": "^4.8.1",
+    "three": "^0.170.0"
+  },
+  "devDependencies": {
+    "socket.io-client": "^4.8.4"
+  }
+}

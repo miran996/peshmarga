@@ -1,0 +1,30 @@
+body.admin { overflow: auto; background: radial-gradient(ellipse at 50% 0%, #25221d 0%, #0a0a0b 70%); min-height: 100%; }
+.admin a { color: var(--accent); }
+.admin-body { padding: 28px; max-width: 1400px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
+.cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.card { border: 1.5px solid var(--line); background: var(--panel); padding: 18px 20px; }
+.card span { display: block; color: var(--paper-dim); font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; }
+.card b { font-size: 32px; letter-spacing: 0.04em; }
+.block { border: 1.5px solid var(--line); background: var(--panel); padding: 20px; }
+.block.two { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.block h2 { font-size: 18px; letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 12px; }
+.block-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.block-head h2 { margin: 0; }
+#a-search, .coin-input { background: #0c0c0e; border: 1px solid var(--line); color: var(--paper); padding: 8px 10px; font-family: inherit; font-size: 14px; outline: none; }
+#a-search { width: 260px; }
+.coin-input { width: 100px; }
+#a-search:focus, .coin-input:focus { border-color: var(--accent); }
+table.data { width: 100%; border-collapse: collapse; font-size: 14px; }
+table.data th { text-align: left; color: var(--paper-dim); font-weight: 400; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+table.data td { padding: 9px 10px; border-bottom: 1px solid rgba(233, 228, 216, 0.06); vertical-align: middle; }
+table.data tr:hover td { background: rgba(255, 255, 255, 0.02); }
+.coins-cell { color: var(--accent); font-weight: 700; }
+.tag { display: inline-block; font-size: 11px; padding: 2px 6px; border: 1px solid var(--line); margin: 1px 2px; letter-spacing: 0.06em; text-transform: uppercase; }
+.tag.admin { border-color: var(--accent); color: var(--accent); }
+.adjust { display: flex; gap: 6px; align-items: center; }
+.adjust .btn { padding: 6px 10px; font-size: 11px; }
+.empty { color: var(--paper-dim); text-align: center; padding: 18px; }
+.live-dot { font-size: 11px; letter-spacing: 0.2em; color: var(--ok); }
+.live-dot::before { content: '● '; animation: blink 1.4s infinite; }
+@keyframes blink { 50% { opacity: 0.2; } }
+@media (max-width: 1000px) { .cards { grid-template-columns: repeat(2, 1fr); } .block.two { grid-template-columns: 1fr; } }

@@ -1,0 +1,21 @@
+{
+  "source": "https://polyhaven.com",
+  "license": "CC0",
+  "credit": "Assets from Poly Haven (polyhaven.com)",
+  "assets": {
+    "covered_car": "models/covered_car/model.gltf",
+    "Barrel_01": "models/Barrel_01/model.gltf",
+    "old_military_crate": "models/old_military_crate/model.gltf",
+    "wooden_military_crate": "models/wooden_military_crate/model.gltf",
+    "ammo_box": "models/ammo_box/model.gltf",
+    "metal_jerrycan": "models/metal_jerrycan/model.gltf",
+    "old_tyre": "models/old_tyre/model.gltf",
+    "rusted_wheel_rim_01": "models/rusted_wheel_rim_01/model.gltf",
+    "concrete_road_barrier": "models/concrete_road_barrier/model.gltf",
+    "modular_factory_facade": "models/modular_factory_facade/model.gltf",
+    "modular_urban_apartments_facade": "models/modular_urban_apartments_facade/model.gltf",
+    "bolt_action_rifle_7_62": "models/bolt_action_rifle_7_62/model.gltf",
+    "service_pistol": "models/service_pistol/model.gltf",
+    "stick_grenade": "models/stick_grenade/model.gltf"
+  }
+}

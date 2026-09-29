@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Character Select · Tactical Forces</title>
+  <link rel="stylesheet" href="/css/character-select.css" />
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(ellipse at 30% 0%, rgba(125, 255, 179, 0.06), transparent 50%),
+        #070809;
+      color: #d8ddd6;
+      font-family: Bahnschrift, "Segoe UI", sans-serif;
+      padding: 28px 24px 40px;
+    }
+  </style>
+</head>
+<body>
+  <div id="character-select-root"></div>
+  <p style="margin-top:18px;color:#7a847a;font-size:13px;letter-spacing:0.06em">
+    Selection is stored in <code>selectedCharacter</code> / localStorage key <code>fps_selected_character</code>.
+  </p>
+  <script type="module">
+    import { mountCharacterSelect, selectedCharacter } from '/js/character-select.js';
+
+    const ui = mountCharacterSelect(document.getElementById('character-select-root'), {
+      onSelect: (ch) => {
+        console.log('selectedCharacter =', ch.id, ch);
+        document.title = `Selected: ${ch.name}`;
+      },
+    });
+
+    // Available for backend join payloads:
+    window.selectedCharacter = selectedCharacter;
+    window.getSelectedCharacter = () => ui.selected;
+  </script>
+</body>
+</html>

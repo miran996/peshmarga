@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin · STICKMAN WARFARE</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/admin.css" />
+</head>
+<body class="admin">
+  <section id="admin-app" class="hidden">
+    <header class="topbar">
+      <div class="brand">COMMAND<span>CENTER</span></div>
+      <nav></nav>
+      <div class="profile">
+        <span id="a-live" class="live-dot">LIVE</span>
+        <span id="a-name" class="username"></span>
+        <button id="a-logout" class="btn ghost small">Log out</button>
+      </div>
+    </header>
+    <main class="admin-body">
+      <div class="cards">
+        <div class="card"><span>Players</span><b id="c-users">0</b></div>
+        <div class="card"><span>Coins in circulation</span><b id="c-coins">0</b></div>
+        <div class="card"><span>Active sessions</span><b id="c-active">0</b></div>
+        <div class="card"><span>In multiplayer arena</span><b id="c-arena">0</b></div>
+      </div>
+
+      <section class="block">
+        <div class="block-head">
+          <h2>Coin orders (IQD)</h2>
+          <button id="a-orders-refresh" class="btn small ghost">Refresh</button>
+        </div>
+        <table class="data">
+          <thead><tr><th>Ref</th><th>Player</th><th>Pack</th><th>Method</th><th>Coins</th><th>IQD</th><th>Note</th><th>Status</th><th>Action</th></tr></thead>
+          <tbody id="orders-body"></tbody>
+        </table>
+      </section>
+
+      <section class="block">
+        <div class="block-head">
+          <h2>Player accounts</h2>
+          <input id="a-search" placeholder="Search username…" />
+        </div>
+        <table class="data">
+          <thead><tr><th>ID</th><th>Username</th><th>Coins</th><th>Kills / Deaths</th><th>Weapons</th><th>Outfit</th><th>Joined</th><th>Adjust coins</th></tr></thead>
+          <tbody id="users-body"></tbody>
+        </table>
+      </section>
+
+      <section class="block two">
+        <div>
+          <h2>Active sessions</h2>
+          <table class="data">
+            <thead><tr><th>Player</th><th>Mode</th><th>Duration</th><th>K / D</th><th>Coins</th></tr></thead>
+            <tbody id="active-body"></tbody>
+          </table>
+        </div>
+        <div>
+          <h2>Multiplayer arena</h2>
+          <table class="data">
+            <thead><tr><th>Player</th><th>Map</th><th>HP</th><th>Weapon</th><th>K / D</th></tr></thead>
+            <tbody id="arena-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="block">
+        <h2>Recent sessions</h2>
+        <table class="data">
+          <thead><tr><th>#</th><th>Player</th><th>Mode</th><th>Started</th><th>Ended</th><th>K / D</th><th>Coins</th></tr></thead>
+          <tbody id="recent-body"></tbody>
+        </table>
+      </section>
+    </main>
+  </section>
+
+  <div id="toast"></div>
+  <script src="/js/admin.js"></script>
+</body>
+</html>

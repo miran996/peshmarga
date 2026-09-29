@@ -1,0 +1,62 @@
+[
+  {
+    "id": "assault",
+    "name": "Assault",
+    "role": "Rifleman",
+    "src": "/img/operators/assault.png?v=3"
+  },
+  {
+    "id": "heavy",
+    "name": "Heavy",
+    "role": "LMG Gunner",
+    "src": "/img/operators/heavy.png?v=3"
+  },
+  {
+    "id": "insurgent",
+    "name": "Insurgent",
+    "role": "Guerrilla",
+    "src": "/img/operators/insurgent.png?v=3"
+  },
+  {
+    "id": "breacher",
+    "name": "Breacher",
+    "role": "Shotgun",
+    "src": "/img/operators/breacher.png?v=3"
+  },
+  {
+    "id": "scout",
+    "name": "Scout",
+    "role": "Carbine",
+    "src": "/img/operators/scout.png?v=3"
+  },
+  {
+    "id": "ghillie",
+    "name": "Ghillie",
+    "role": "Sniper",
+    "src": "/img/operators/ghillie.png?v=3"
+  },
+  {
+    "id": "smg",
+    "name": "Pointman",
+    "role": "SMG",
+    "src": "/img/operators/smg.png?v=3"
+  },
+  {
+    "id": "nightops",
+    "name": "Night Ops",
+    "role": "CQC / NVG",
+    "src": "/img/operators/nightops.png?v=3"
+  },
+  {
+    "id": "riot",
+    "name": "Riot Guard",
+    "role": "Shield",
+    "src": "/img/operators/riot.png?v=3"
+  },
+  {
+    "id": "prone",
+    "name": "Recon",
+    "role": "Prone Overwatch",
+    "src": "/img/operators/prone.png?v=3"
+  }
+]

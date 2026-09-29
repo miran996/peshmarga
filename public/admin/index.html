@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Command Center · STICKMAN WARFARE</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/admin/css/admin.css?v=3" />
+</head>
+<body class="admin-shell">
+  <aside class="admin-nav">
+    <div class="admin-brand">COMMAND<span>CENTER</span></div>
+    <nav id="side-nav"></nav>
+    <div class="admin-nav-foot">
+      <span id="a-role" class="role-pill">—</span>
+      <span id="a-name" class="username"></span>
+      <button id="a-logout" class="btn ghost small">Log out</button>
+    </div>
+  </aside>
+  <main class="admin-main">
+    <header class="admin-top">
+      <h1 id="view-title">Dashboard</h1>
+      <span class="live-dot" id="a-live">LIVE</span>
+    </header>
+    <div id="view-root" class="admin-view"></div>
+  </main>
+  <div id="toast"></div>
+  <script type="module" src="/admin/js/app.js?v=5"></script>
+</body>
+</html>

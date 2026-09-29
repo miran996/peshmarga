@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>STICKMAN WARFARE</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Bebas+Neue&family=Noto+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css?v=rtl1" />
+  <link rel="stylesheet" href="/css/character-select.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "/vendor/three/build/three.module.js",
+        "three/addons/": "/vendor/three/examples/jsm/"
+      }
+    }
+  </script>
+  <script src="/shared/map.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+  <div id="grain"></div>
+
+  <!-- ============ AUTH ============ -->
+  <section id="screen-auth" class="screen hidden">
+    <div class="auth-bezel" aria-hidden="true">
+      <i class="bolt tl"></i><i class="bolt tr"></i><i class="bolt bl"></i><i class="bolt br"></i>
+      <span class="wire left"></span><span class="wire right"></span>
+    </div>
+    <div class="auth-stage">
+      <div class="auth-bg" aria-hidden="true">
+        <div class="auth-photo"></div>
+        <div class="auth-scanlines"></div>
+        <div class="auth-haze"></div>
+        <div class="auth-vignette"></div>
+      </div>
+
+      <div class="auth-content">
+        <div class="lang-bar auth-lang">
+          <span class="lang-crest" aria-hidden="true"></span>
+          <label class="lang-label" for="auth-lang" data-i18n="nav.lang">Language</label>
+          <select id="auth-lang" class="lang-select" aria-label="Language"></select>
+        </div>
+
+        <header class="auth-hero">
+          <p class="auth-kicker"><i></i> <span data-i18n="auth.kicker">Secure channel · Live ops</span></p>
+          <div class="auth-title-row">
+            <h1 class="auth-brand">STICKMAN<br /><span>WARFARE</span></h1>
+            <img class="auth-crest" src="/img/auth-crest.svg" width="110" height="128" alt="" />
+          </div>
+          <p class="auth-lead" data-i18n="auth.lead">Drop into ink-line combat. Choose your kit. Hold the line.</p>
+        </header>
+
+        <div class="auth-panel">
+          <div class="auth-panel-head">
+            <span class="auth-status"><i class="pulse"></i> <span data-i18n="auth.status">READY TO DEPLOY</span></span>
+            <div class="tabs" role="tablist">
+              <button type="button" class="tab active" data-tab="login" role="tab" data-i18n="auth.login">Log in</button>
+              <button type="button" class="tab" data-tab="register" role="tab" data-i18n="auth.register">Enlist</button>
+            </div>
+          </div>
+          <form id="auth-form" autocomplete="on">
+            <label><span data-i18n="auth.callsign">Callsign</span>
+              <input id="auth-user" name="username" required minlength="3" maxlength="16" pattern="[A-Za-z0-9_]{3,16}" autocomplete="username" data-i18n-placeholder="auth.userPh" placeholder="Operator name" />
+            </label>
+            <label><span data-i18n="auth.password">Access code</span>
+              <input id="auth-pass" name="password" type="password" required minlength="6" maxlength="72" autocomplete="current-password" placeholder="••••••••" />
+            </label>
+            <label id="auth-confirm-wrap" class="hidden"><span data-i18n="auth.confirm">Confirm access code</span>
+              <input id="auth-confirm" type="password" minlength="6" maxlength="72" autocomplete="new-password" placeholder="••••••••" />
+            </label>
+            <p id="auth-error" class="error"></p>
+            <button type="submit" id="auth-submit" class="btn primary auth-deploy" data-i18n="auth.deploy">Deploy</button>
+          </form>
+          <p class="hint" data-i18n="auth.hint" data-i18n-html>New recruits receive <b>1,000 coins</b> and a sidearm.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ MAIN MENU ============ -->
+  <section id="screen-menu" class="screen hidden">
+    <header class="topbar">
+      <div class="brand">STICKMAN<span>WARFARE</span></div>
+      <nav>
+        <button class="nav-btn active" data-panel="play" data-i18n="nav.play">Play</button>
+        <button class="nav-btn" data-panel="armory" data-i18n="nav.armory">Armory</button>
+        <button class="nav-btn" data-panel="operators" data-i18n="nav.operators">Operators</button>
+        <button class="nav-btn" data-panel="wardrobe" data-i18n="nav.wardrobe">Wardrobe</button>
+        <button class="nav-btn" data-panel="friends" data-i18n="nav.friends">Friends</button>
+        <button class="nav-btn" data-panel="coins" data-i18n="nav.coins">Buy Coins</button>
+        <button class="nav-btn" data-panel="leaderboard" data-i18n="nav.leaderboard">Leaderboard</button>
+        <button class="nav-btn" data-panel="settings" data-i18n="nav.settings">Settings</button>
+        <button class="nav-btn" data-panel="controls" data-i18n="nav.controls">Controls</button>
+      </nav>
+      <div class="profile">
+        <span class="coin-chip"><i class="coin"></i><b id="menu-coins">0</b></span>
+        <img id="menu-avatar" class="avatar-img hidden" alt="" width="36" height="36" />
+        <span id="menu-user" class="username"></span>
+        <label class="lang-wrap" title="Language">
+          <span class="lang-label" data-i18n="nav.lang">Language</span>
+          <select id="menu-lang" class="lang-select" aria-label="Language"></select>
+        </label>
+        <button id="logout-btn" class="btn ghost small" data-i18n="nav.logout">Log out</button>
+      </div>
+    </header>
+
+    <main class="menu-body">
+      <div class="panels">
+        <!-- PLAY -->
+        <div class="panel active" id="panel-play">
+          <h2 data-i18n="play.title">Deploy</h2>
+          <p class="sub" id="loadout-summary"></p>
+          <div class="map-select">
+            <span class="label" data-i18n="play.battlefield">Battlefield</span>
+            <p class="sub" id="map-match-hint" data-i18n="play.mapHint">Online players auto-join the same live lobby. Map choice matters when no lobby is open yet.</p>
+            <div id="map-select" class="map-grid"></div>
+          </div>
+          <div class="weather-select">
+            <span class="label" data-i18n="play.weather">Weather</span>
+            <p class="sub" data-i18n="play.weatherSub">Pick the look before you deploy — each option is separate.</p>
+            <div class="weather-grid" id="weather-select">
+              <button type="button" class="weather-btn selected" data-weather="clear"><b data-i18n="weather.clear">Clear</b><small data-i18n="weather.clearSub">Overcast default</small></button>
+              <button type="button" class="weather-btn" data-weather="day"><b data-i18n="weather.day">Day</b><small data-i18n="weather.daySub">Bright sun</small></button>
+              <button type="button" class="weather-btn" data-weather="night"><b data-i18n="weather.night">Night</b><small data-i18n="weather.nightSub">Dark streets</small></button>
+              <button type="button" class="weather-btn" data-weather="fog"><b data-i18n="weather.fog">Fog</b><small data-i18n="weather.fogSub">Thick haze</small></button>
+              <button type="button" class="weather-btn" data-weather="rain"><b data-i18n="weather.rain">Rain</b><small data-i18n="weather.rainSub">Wet + drizzle</small></button>
+            </div>
+          </div>
+          <div class="mode-grid">
+            <div class="mode-card">
+              <h3 data-i18n="play.spTitle">Single Player</h3>
+              <p data-i18n="play.spDesc">Free-for-all against AI operatives. First to 30 kills or most kills in 8 minutes.</p>
+              <div class="difficulty" id="difficulty-select">
+                <button class="diff selected" data-diff="normal"><b data-i18n="diff.normal">Normal</b><small data-i18n="diff.normalSub">Slow reactions, loose aim, wandering squads</small></button>
+                <button class="diff" data-diff="medium"><b data-i18n="diff.medium">Medium</b><small data-i18n="diff.mediumSub">Uses cover, strafes, hunts by sound</small></button>
+                <button class="diff" data-diff="hard"><b data-i18n="diff.hard">Hard</b><small data-i18n="diff.hardSub">Snap aim, flanking, relentless pressure</small></button>
+              </div>
+              <button class="btn primary wide" id="play-sp" data-i18n="play.chooseLoadout">Choose Loadout</button>
+            </div>
+            <div class="mode-card">
+              <h3 data-i18n="play.mpTitle">Multiplayer</h3>
+              <p data-i18n="play.mpDesc">Real-time battles against other players on this server. Join anytime, respawn in 3.5s.</p>
+              <div class="difficulty" id="mp-mode-select">
+                <button class="diff" data-mpmode="ffa"><b data-i18n="mp.ffa">Free-for-all</b><small data-i18n="mp.ffaSub">Everyone for themselves</small></button>
+                <button class="diff" data-mpmode="tdm"><b data-i18n="mp.tdm">Team Deathmatch</b><small data-i18n="mp.tdmSub">Red vs blue, first team to 50 kills</small></button>
+              </div>
+              <ul class="mp-facts">
+                <li data-i18n="mp.fact1">+50 coins per kill, +10 for headshots</li>
+                <li data-i18n="mp.fact2">Players auto-join the same live lobby (map preference only if empty)</li>
+                <li data-i18n="mp.fact3">Press T to chat (Y for team chat)</li>
+              </ul>
+              <button class="btn primary wide" id="play-mp" data-i18n="play.joinArena">Join Arena</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- LOADOUT (shown before every match) -->
+        <div class="panel" id="panel-loadout">
+          <h2 data-i18n="lo.title">Choose Loadout</h2>
+          <p class="sub" id="lo-context"></p>
+          <div class="lo-preview" aria-hidden="true">
+            <canvas id="lo-preview-canvas"></canvas>
+            <div class="preview-caption"><span id="lo-preview-name">Multicam Operator</span></div>
+          </div>
+          <div class="lo-section"><span class="label" data-i18n="lo.outfit">Outfit</span><div class="lo-grid" id="lo-outfits"></div></div>
+          <div class="lo-section"><span class="label" data-i18n="lo.primary">Primary weapon</span><div class="lo-grid" id="lo-primary"></div></div>
+          <div class="lo-section"><span class="label" data-i18n="lo.secondary">Secondary</span><div class="lo-grid" id="lo-secondary"></div></div>
+          <div class="lo-section"><span class="label" data-i18n="lo.lethal">Lethal equipment</span><div class="lo-grid" id="lo-lethal"></div></div>
+          <div class="lo-section"><span class="label" data-i18n="lo.perk">Perk</span><div class="lo-grid" id="lo-perk"></div></div>
+          <div class="lo-actions">
+            <button class="btn ghost" id="lo-back" data-i18n="lo.back">Back</button>
+            <button class="btn primary" id="lo-deploy" data-i18n="lo.deploy">Deploy</button>
+          </div>
+        </div>
+
+        <!-- ARMORY -->
+        <div class="panel" id="panel-armory">
+          <h2 data-i18n="armory.title">Armory</h2>
+          <p class="sub" data-i18n="armory.sub">Earn 50 coins per kill. Weapons are permanent unlocks.</p>
+          <div class="shop-grid" id="weapon-grid"></div>
+        </div>
+
+        <!-- OPERATORS (character select sprites) -->
+        <div class="panel" id="panel-operators">
+          <div id="character-select-root"></div>
+        </div>
+
+        <!-- WARDROBE -->
+        <div class="panel" id="panel-wardrobe">
+          <h2 data-i18n="ward.title">Wardrobe</h2>
+          <p class="sub" data-i18n="ward.sub">Your look is visible to other players and on your first-person arms.</p>
+          <h3 class="section-title" data-i18n="ward.outfits">Outfits</h3>
+          <div class="shop-grid" id="cosmetic-grid"></div>
+          <h3 class="section-title" data-i18n="ward.flags">Flag patches</h3>
+          <p class="sub" data-i18n="ward.flagsSub">Equip a national patch — it shows on every outfit (chest + shoulder). Kurdistan included.</p>
+          <div class="shop-grid" id="flag-grid"></div>
+        </div>
+
+        <!-- FRIENDS / PARTY -->
+        <div class="panel" id="panel-friends">
+          <h2 data-i18n="friends.title">Friends</h2>
+          <p class="sub" data-i18n="friends.sub">Search members, add friends, and invite them to play together.</p>
+          <div class="account-box">
+            <h3 class="section-title" style="margin-top:0" data-i18n="friends.addTitle">Find members</h3>
+            <p class="sub" data-i18n="friends.searchHint">Type a name — matching players appear below so you can add or invite them.</p>
+            <div class="account-row friend-search-row">
+              <input id="friend-user" maxlength="16" minlength="1" data-i18n-placeholder="friends.addPh" placeholder="Search username…" autocomplete="off" />
+              <button class="btn small primary" id="friend-add-btn" data-i18n="friends.addBtn">Add</button>
+            </div>
+            <div id="friend-search-results" class="friends-list friend-search-results"></div>
+          </div>
+          <h3 class="section-title" data-i18n="friends.incoming">Incoming requests</h3>
+          <div id="friends-incoming" class="friends-list"></div>
+          <h3 class="section-title" data-i18n="friends.list">Your friends</h3>
+          <div id="friends-list" class="friends-list"></div>
+          <h3 class="section-title" data-i18n="friends.outgoing">Sent requests</h3>
+          <div id="friends-outgoing" class="friends-list"></div>
+        </div>
+
+        <!-- BUY COINS -->
+        <div class="panel" id="panel-coins">
+          <h2 data-i18n="coins.title">Buy Coins</h2>
+          <p class="sub" data-i18n="coins.sub">Pay in Iraqi dinar (IQD) via Fib, NBI, AsiaPay and more. An admin credits coins after verifying your transfer.</p>
+          <div class="shop-grid" id="coin-pack-grid"></div>
+          <h3 class="section-title" data-i18n="coins.orders">Your orders</h3>
+          <div id="coin-order-list" class="order-list"></div>
+        </div>
+
+        <!-- LEADERBOARD -->
+        <div class="panel" id="panel-leaderboard">
+          <h2 data-i18n="lb.title">Leaderboard</h2>
+          <p class="sub" data-i18n="lb.sub">All-time totals across single-player and multiplayer.</p>
+          <div class="chip-row" id="lb-sort">
+            <button class="chip selected" data-sort="kills" data-i18n="lb.kills">Most kills</button>
+            <button class="chip" data-sort="kd" data-i18n="lb.kd">Best K/D</button>
+            <button class="chip" data-sort="coins" data-i18n="lb.coins">Richest</button>
+          </div>
+          <table class="lb-table">
+            <thead><tr>
+              <th data-i18n="lb.th.rank">#</th>
+              <th data-i18n="lb.th.name">Operative</th>
+              <th data-i18n="lb.th.kills">Kills</th>
+              <th data-i18n="lb.th.deaths">Deaths</th>
+              <th data-i18n="lb.th.kd">K/D</th>
+              <th data-i18n="lb.th.coins">Coins</th>
+            </tr></thead>
+            <tbody id="lb-body"></tbody>
+          </table>
+          <p class="sub" id="lb-me"></p>
+        </div>
+
+        <!-- SETTINGS -->
+        <div class="panel" id="panel-settings">
+          <h2 data-i18n="set.title">Settings</h2>
+          <p class="sub" data-i18n="set.sub">Saved on this PC and applied immediately, even mid-match (Esc &gt; Settings).</p>
+          <div class="account-box">
+            <h3 class="section-title" style="margin-top:0" data-i18n="set.photo">Profile photo</h3>
+            <p class="sub" data-i18n="set.photoSub">Shown on the menu and leaderboard. Square crop works best — max about 200 KB after resize.</p>
+            <div class="avatar-edit">
+              <div id="avatar-preview" class="avatar-preview" aria-hidden="true"></div>
+              <div class="avatar-actions">
+                <label class="btn small primary" for="avatar-file" data-i18n="set.upload">Upload photo</label>
+                <input id="avatar-file" type="file" accept="image/jpeg,image/png,image/webp" hidden />
+                <button type="button" class="btn small ghost" id="avatar-clear" data-i18n="set.remove">Remove</button>
+              </div>
+            </div>
+            <p class="pay-hint" id="avatar-hint" data-i18n="set.photoHint">JPEG, PNG or WebP. Image is resized on your device before upload.</p>
+          </div>
+          <div class="account-box">
+            <h3 class="section-title" style="margin-top:0" data-i18n="set.name">Operative name</h3>
+            <p class="sub" data-i18n="set.nameSub">Change the name other players see. Names must be unique — no duplicates.</p>
+            <div class="account-row">
+              <input id="rename-user" maxlength="16" minlength="3" pattern="[A-Za-z0-9_]{3,16}" data-i18n-placeholder="set.namePh" placeholder="New username" autocomplete="username" />
+              <button class="btn small primary" id="rename-btn" data-i18n="set.saveName">Save name</button>
+            </div>
+            <p class="pay-hint" id="rename-hint" data-i18n="set.nameHint">3–16 letters, numbers or underscores. Case does not create a new name (Bob = bob).</p>
+          </div>
+          <div class="account-box">
+            <h3 class="section-title" style="margin-top:0" data-i18n="set.password">Password</h3>
+            <p class="sub" data-i18n="set.passwordSub">Update the password you use to log in. You must enter your current password first.</p>
+            <div class="account-stack">
+              <input id="pw-current" type="password" maxlength="72" data-i18n-placeholder="set.pwCurrent" placeholder="Current password" autocomplete="current-password" />
+              <input id="pw-new" type="password" maxlength="72" minlength="6" data-i18n-placeholder="set.pwNew" placeholder="New password" autocomplete="new-password" />
+              <input id="pw-confirm" type="password" maxlength="72" minlength="6" data-i18n-placeholder="set.pwConfirm" placeholder="Confirm new password" autocomplete="new-password" />
+              <button type="button" class="btn small primary" id="pw-btn" data-i18n="set.savePw">Save password</button>
+            </div>
+            <p class="pay-hint" id="pw-hint" data-i18n="set.pwHint">Password must be 6–72 characters.</p>
+          </div>
+          <div class="account-box">
+            <h3 class="section-title" style="margin-top:0" data-i18n="set.history">Coin purchase history</h3>
+            <p class="sub" data-i18n="set.historySub">Orders you requested. Pending means waiting for admin; Completed means coins were added.</p>
+            <div id="purchase-history" class="order-list"></div>
+          </div>
+          <div id="menu-settings" class="settings-form"></div>
+        </div>
+
+        <!-- CONTROLS -->
+        <div class="panel" id="panel-controls">
+          <h2 data-i18n="ctrl.title">Controls</h2>
+          <p class="sub" data-i18n="bind.sub">Click a key box to change it, then press the new key. Esc cancels. Mouse look / fire / ADS stay on the mouse.</p>
+          <div class="bind-toolbar">
+            <button type="button" class="btn small primary" id="binds-edit-toggle" data-i18n="bind.edit">Edit keys</button>
+            <button type="button" class="btn small ghost" id="binds-reset" data-i18n="bind.reset">Reset to defaults</button>
+            <span class="pay-hint" id="binds-hint" data-i18n="bind.hint">Changes save on this PC and apply in the next match.</span>
+          </div>
+          <div id="keybind-list" class="keybind-list"></div>
+          <h3 class="section-title" data-i18n="bind.mouseTitle">Mouse (fixed)</h3>
+          <div class="controls-grid bind-mouse">
+            <div><kbd>Mouse</kbd><span data-i18n="ctrl.look">Look</span></div>
+            <div><kbd>LMB</kbd><span data-i18n="ctrl.fire">Fire</span></div>
+            <div><kbd>RMB</kbd><span data-i18n="ctrl.ads">Aim down sights / scope</span></div>
+            <div><kbd>Wheel</kbd><span data-i18n="bind.wheel">Switch weapon</span></div>
+            <div><kbd>Esc</kbd><span data-i18n="ctrl.pause">Pause / settings</span></div>
+          </div>
+        </div>
+      </div>
+
+      <aside class="preview">
+        <canvas id="preview-canvas"></canvas>
+        <div class="preview-caption"><span id="preview-name">Multicam Operator</span></div>
+      </aside>
+    </main>
+  </section>
+
+  <!-- ============ GAME ============ -->
+  <section id="screen-game" class="screen hidden">
+    <div id="stage">
+      <canvas id="game-canvas"></canvas>
+      <div id="hud">
+        <div class="vignette"></div>
+        <div id="damage-overlay"></div>
+        <div id="damage-indicators"></div>
+        <div id="scope" class="hidden"><div class="scope-ring"></div></div>
+        <div id="acog" class="hidden"><div class="acog-ring"><i class="chevron"></i><i class="stadia"></i></div></div>
+        <div id="reddot" class="hidden"><div class="reddot-ring"><i class="dot"></i></div></div>
+        <div id="holo" class="hidden"><div class="holo-ring"><i class="circle"></i><i class="dot"></i><i class="hash t"></i><i class="hash b"></i><i class="hash l"></i><i class="hash r"></i></div></div>
+        <div id="film-grain"></div>
+        <div id="crosshair"><i class="t"></i><i class="b"></i><i class="l"></i><i class="r"></i></div>
+        <div id="hitmarker"><i></i><i></i><i></i><i></i></div>
+
+        <div id="radar-wrap"><canvas id="radar" width="180" height="180"></canvas></div>
+        <div id="uav-tag" class="hidden">UAV</div>
+        <div id="trophy-tag" class="hidden">TROPHY [X]</div>
+        <div id="fps" class="hidden">60 FPS</div>
+        <div id="scorebox">
+          <div id="mode-label">FREE FOR ALL</div>
+          <div id="score-line" class="score-line"><span id="score-you">0</span><span class="sep">/</span><span id="score-goal">30</span></div>
+          <div id="timer">8:00</div>
+        </div>
+        <div id="grenade-warn" class="hidden"><i></i></div>
+        <div id="streaks"></div>
+        <div id="chat">
+          <div id="chat-log"></div>
+          <div id="chat-entry" class="hidden"><span id="chat-scope">ALL</span><input id="chat-input" maxlength="120" autocomplete="off" spellcheck="false" /></div>
+        </div>
+        <div id="round-end" class="round-end hidden"></div>
+        <div id="killfeed"></div>
+        <div id="center-msg"></div>
+        <div id="coin-pop"></div>
+
+        <div id="health-wrap"><div id="health-bar"><div id="health-fill"></div></div></div>
+
+        <div id="weapon-hud">
+          <div id="weapon-name">PISTOL</div>
+          <div id="ammo"><b id="ammo-mag">12</b><span id="ammo-res">/ 72</span></div>
+          <div id="weapon-slots"></div>
+          <div id="equipment"><span><kbd>G</kbd><span id="lethal-name">Frag Grenade</span> ×<b id="grenade-count">2</b></span><span id="perk-line"><span id="perk-name">Double Time</span></span><span><kbd>V</kbd><span data-i18n="hud.knife">Knife</span></span></div>
+          <div id="reload-hint" class="hidden" data-i18n="hud.reload">Press R to reload</div>
+        </div>
+        <div id="hud-coins"><i class="coin"></i><b id="hud-coin-val">0</b></div>
+
+        <div id="scoreboard" class="hidden">
+          <h3 data-i18n="hud.scoreboard">Scoreboard</h3>
+          <table><thead><tr><th data-i18n="hud.operative">Operative</th><th>K</th><th>D</th></tr></thead><tbody id="scoreboard-body"></tbody></table>
+        </div>
+
+        <div id="death-screen" class="overlay hidden">
+          <div class="death-inner">
+            <div class="killed-by" data-i18n="hud.killedBy">KILLED BY</div>
+            <div id="killer-name">—</div>
+            <div id="respawn-timer">Respawning in 3</div>
+          </div>
+        </div>
+
+        <div id="pause-menu" class="overlay hidden">
+          <div class="overlay-card">
+            <h2 data-i18n="hud.pause">Paused</h2>
+            <button class="btn primary wide" id="resume-btn" data-i18n="hud.resume">Resume</button>
+            <button class="btn ghost wide" id="pause-settings-btn" data-i18n="hud.settings">Settings</button>
+            <div id="pause-settings" class="settings-form compact hidden"></div>
+            <button class="btn ghost wide" id="quit-btn" data-i18n="hud.quit">Quit to menu</button>
+            <p class="hint" data-i18n="hud.pauseHint">Click resume to recapture the mouse.</p>
+          </div>
+        </div>
+
+        <div id="results" class="overlay hidden">
+          <div class="overlay-card">
+            <h2 id="results-title" data-i18n="hud.mission">Mission Complete</h2>
+            <div class="results-grid">
+              <div><span data-i18n="hud.kills">Kills</span><b id="res-kills">0</b></div>
+              <div><span data-i18n="hud.deaths">Deaths</span><b id="res-deaths">0</b></div>
+              <div><span data-i18n="hud.kd">K/D</span><b id="res-kd">0</b></div>
+              <div><span data-i18n="hud.coinsEarned">Coins earned</span><b id="res-coins">0</b></div>
+            </div>
+            <button class="btn primary wide" id="results-btn" data-i18n="hud.backMenu">Back to menu</button>
+          </div>
+        </div>
+
+        <div id="click-to-play" class="overlay hidden">
+          <div class="overlay-card">
+            <h2 id="ctp-title" data-i18n="hud.ready">Ready</h2>
+            <p data-i18n="hud.clickDeploy">Click to lock the mouse and deploy.</p>
+          </div>
+        </div>
+        <div id="letterbox-top"></div><div id="letterbox-bottom"></div>
+      </div>
+    </div>
+  </section>
+
+        <div id="party-invite" class="party-invite hidden" role="dialog" aria-live="polite">
+          <div class="party-invite-card">
+            <p id="party-invite-text"></p>
+            <div class="party-invite-actions">
+              <button type="button" class="btn small primary" id="party-invite-accept" data-i18n="friends.acceptInvite">Join</button>
+              <button type="button" class="btn small ghost" id="party-invite-decline" data-i18n="friends.declineInvite">Decline</button>
+            </div>
+          </div>
+        </div>
+  <div id="toast"></div>
+  <script type="module" src="/js/app.js?v=rtl1"></script>
+</body>
+</html>
