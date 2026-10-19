@@ -52,23 +52,47 @@ function createAdminRouter({ db, auth, realtime }) {
 
   // ----- Users / players -----
   router.get('/users', requirePerm(db, 'players.view'), (req, res) => {
-    const online = realtime.getOnlineUserIds?.() || new Set();
+    const presence = realtime.getAdminPresenceMap?.() || new Map();
+    const liveMatches = realtime.getLiveMatchPlayers?.() || [];
     const includeBots = req.query.bots === '1';
     const users = db.getAllUsers()
       .filter((u) => includeBots || !u.isBot)
-      .map((u) => ({
-        ...u,
-        online: online.has(Number(u.id)),
-        arena: realtime.getUserArenaSummary?.(u.id, { includeRestricted: true }) || null,
-      }));
-    users.sort((a, b) => Number(b.online) - Number(a.online) || a.username.localeCompare(b.username));
-    res.json({ users, onlineCount: users.filter((u) => u.online).length });
+      .map((u) => {
+        const id = Number(u.id);
+        const live = presence.get(id);
+        return {
+          ...u,
+          id,
+          online: !!(live?.online),
+          activity: live?.activity || null,
+          arena: live?.arena || realtime.getUserArenaSummary?.(id, { includeRestricted: true }) || null,
+        };
+      });
+    users.sort((a, b) => {
+      const aIn = a.arena ? 2 : a.online ? 1 : 0;
+      const bIn = b.arena ? 2 : b.online ? 1 : 0;
+      return bIn - aIn || a.username.localeCompare(b.username);
+    });
+    res.json({
+      users,
+      onlineCount: users.filter((u) => u.online).length,
+      inMatchCount: users.filter((u) => u.arena).length,
+      liveMatches,
+    });
   });
 
   router.get('/players/:id', requirePerm(db, 'players.view'), wrap((req, res) => {
     const profile = db.getPlayerProfile(req.params.id);
-    const arena = realtime.getUserArenaSummary?.(profile.user.id, { includeRestricted: true }) || null;
-    res.json({ ...profile, arena, online: !!(realtime.getOnlineUserIds?.().has(Number(profile.user.id))) });
+    const id = Number(profile.user.id);
+    const presence = realtime.getAdminPresenceMap?.()?.get(id);
+    const arena = presence?.arena || realtime.getUserArenaSummary?.(id, { includeRestricted: true }) || null;
+    res.json({
+      ...profile,
+      user: { ...profile.user, id },
+      arena,
+      online: !!(presence?.online || arena),
+      activity: presence?.activity || (arena ? 'mp' : null),
+    });
   }));
 
   /** Staff opens the main game and joins this player's live lobby. */

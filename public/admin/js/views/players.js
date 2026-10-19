@@ -1,7 +1,14 @@
-import { api, toast, esc, fmtDate, fmtDur, can } from '../api.js';
+import { api, toast, esc, fmtDate, fmtDur, can } from '../api.js?v=12';
 
 export async function renderPlayers(root, state) {
   root.innerHTML = `
+    <section class="block">
+      <div class="block-head">
+        <h2>Now in match</h2>
+        <span class="muted" id="p-live-meta">Live</span>
+      </div>
+      <div id="p-live-matches"><p class="muted">Checking…</p></div>
+    </section>
     <section class="block">
       <div class="block-head">
         <h2>Player search</h2>
@@ -10,6 +17,7 @@ export async function renderPlayers(root, state) {
           <select id="p-online-filter">
             <option value="all">All</option>
             <option value="online">Online only</option>
+            <option value="match">In match only</option>
             <option value="offline">Offline only</option>
           </select>
           <button class="btn small ghost" id="p-refresh">Refresh</button>
@@ -36,30 +44,72 @@ export async function renderPlayers(root, state) {
   `;
 
   let users = [];
+  let liveMatches = [];
   let onlineCount = 0;
+  let inMatchCount = 0;
+  let selectedId = null;
+  let refreshTimer = null;
   const list = root.querySelector('#p-list');
   const filterEl = root.querySelector('#p-online-filter');
   const searchEl = root.querySelector('#p-search');
+  const liveBox = root.querySelector('#p-live-matches');
+
+  async function joinMatch(userId) {
+    try {
+      const join = await api(`/api/admin/players/${userId}/join-match`, {});
+      toast(`Opening ${join.targetUsername}'s match…`);
+      window.open(join.url || `/?joinMatch=${join.token}`, '_blank', 'noopener');
+    } catch (e) { toast(e.message, true); }
+  }
+
+  const drawLive = () => {
+    root.querySelector('#p-live-meta').textContent =
+      `${liveMatches.length} playing · auto-refresh`;
+    if (!liveMatches.length) {
+      liveBox.innerHTML = '<p class="muted">Nobody in a multiplayer match right now. When a player starts FFA/TDM, they appear here.</p>';
+      return;
+    }
+    liveBox.innerHTML = `<table class="data"><thead><tr>
+      <th>Player</th><th>Map</th><th>Mode</th><th>Lobby</th><th>K/D</th><th></th>
+    </tr></thead><tbody>${liveMatches.map((m) => `<tr>
+      <td class="player-name"><button type="button" class="linkish" data-open="${m.userId}">${esc(m.username)}</button></td>
+      <td>${esc(m.mapName)}</td>
+      <td>${esc(String(m.mode || '').toUpperCase())}</td>
+      <td>${m.count}/${m.max}</td>
+      <td>${m.kills}/${m.deaths}</td>
+      <td>${can(state, 'moderation.act')
+    ? `<button type="button" class="btn small primary" data-join="${m.userId}">Join</button>` : '—'}</td>
+    </tr>`).join('')}</tbody></table>`;
+    liveBox.querySelectorAll('[data-join]').forEach((btn) => {
+      btn.addEventListener('click', () => joinMatch(btn.dataset.join));
+    });
+    liveBox.querySelectorAll('[data-open]').forEach((btn) => {
+      btn.addEventListener('click', () => loadProfile(btn.dataset.open));
+    });
+  };
 
   const drawList = () => {
     const q = searchEl.value.trim().toLowerCase();
     const of = filterEl.value;
     let rows = users.filter((u) => !q || u.username.toLowerCase().includes(q) || String(u.id) === q);
     if (of === 'online') rows = rows.filter((u) => u.online);
+    if (of === 'match') rows = rows.filter((u) => u.arena);
     if (of === 'offline') rows = rows.filter((u) => !u.online);
     root.querySelector('#p-online-summary').textContent =
-      `${onlineCount} online · ${users.length} total · showing ${rows.length}`;
+      `${onlineCount} online · ${inMatchCount} in match · ${users.length} total · showing ${rows.length}`;
     list.innerHTML = rows.slice(0, 120).map((u) => `
-      <tr data-id="${u.id}" style="cursor:pointer" class="${u.online ? 'row-online' : ''}">
+      <tr data-id="${u.id}" style="cursor:pointer" class="${u.arena ? 'row-online' : u.online ? 'row-online' : ''}">
         <td class="num">${u.id}</td>
         <td class="player-name"><span class="player-name-text">${esc(u.username)}</span>${u.role && u.role !== 'none' ? ` <span class="tag warn">${esc(u.role)}</span>` : ''}</td>
-        <td>${u.online
-    ? `<span class="tag ok"><i class="dot-on"></i> Online${u.arena ? ` · ${esc(u.arena.mapName)}` : ''}</span>${
-      can(state, 'moderation.act') && u.arena
+        <td>${u.arena
+    ? `<span class="tag ok"><i class="dot-on"></i> In match · ${esc(u.arena.mapName)}</span>${
+      can(state, 'moderation.act')
         ? ` <button type="button" class="btn small primary join-row-btn" data-join="${u.id}">Join</button>`
         : ''}`
-    : `<span class="tag muted-tag">Offline</span>`}</td>
-        <td class="coins-cell">${u.coins.toLocaleString()}</td>
+    : u.online
+      ? `<span class="tag ok"><i class="dot-on"></i> Online${u.activity === 'sp' ? ' · Campaign' : ' · Menu'}</span>`
+      : `<span class="tag muted-tag">Offline</span>`}</td>
+        <td class="coins-cell">${Number(u.coins || 0).toLocaleString()}</td>
         <td>${u.totalKills}/${u.totalDeaths}</td>
       </tr>`).join('') || '<tr><td colspan="5" class="empty">None</td></tr>';
     list.querySelectorAll('[data-id]').forEach((tr) => tr.addEventListener('click', (e) => {
@@ -72,51 +122,65 @@ export async function renderPlayers(root, state) {
     }));
   };
 
-  async function joinMatch(userId) {
-    try {
-      const join = await api(`/api/admin/players/${userId}/join-match`, {});
-      toast(`Opening ${join.targetUsername}'s match…`);
-      window.open(join.url || `/?joinMatch=${join.token}`, '_blank', 'noopener');
-    } catch (e) { toast(e.message, true); }
-  }
-
-  const loadUsers = async () => {
+  const loadUsers = async ({ quiet = false } = {}) => {
     const data = await api('/api/admin/users');
-    users = data.users || [];
+    users = (data.users || []).map((u) => ({ ...u, id: Number(u.id) }));
+    liveMatches = data.liveMatches || [];
     onlineCount = data.onlineCount ?? users.filter((u) => u.online).length;
+    inMatchCount = data.inMatchCount ?? users.filter((u) => u.arena).length;
+    drawLive();
     drawList();
+    if (selectedId && quiet) loadProfile(selectedId, { quiet: true }).catch(() => {});
   };
 
   searchEl.addEventListener('input', drawList);
   filterEl.addEventListener('change', drawList);
-  root.querySelector('#p-refresh').addEventListener('click', () => loadUsers().catch((e) => toast(e.message, true)));
+  root.querySelector('#p-refresh').addEventListener('click', () => {
+    loadUsers().then(() => {
+      if (selectedId) loadProfile(selectedId);
+    }).catch((e) => toast(e.message, true));
+  });
+
+  const stopRefresh = () => {
+    if (refreshTimer) clearInterval(refreshTimer);
+    refreshTimer = null;
+  };
+  stopRefresh();
+  refreshTimer = setInterval(() => {
+    if (!root.isConnected) { stopRefresh(); return; }
+    loadUsers({ quiet: true }).catch(() => {});
+  }, 2500);
+
   await loadUsers();
 
-  async function loadProfile(id) {
+  async function loadProfile(id, { quiet = false } = {}) {
+    selectedId = Number(id);
     const pane = root.querySelector('#p-profile');
-    pane.innerHTML = '<p class="muted">Loading…</p>';
+    if (!quiet) pane.innerHTML = '<p class="muted">Loading…</p>';
     try {
       const p = await api(`/api/admin/players/${id}`);
       const u = p.user;
-      const live = users.find((x) => x.id === u.id);
+      const uid = Number(u.id);
+      const live = users.find((x) => Number(x.id) === uid);
       const isOnline = !!(p.online ?? live?.online);
       const arena = p.arena || live?.arena || null;
       if (live) {
         live.online = isOnline;
         live.arena = arena;
+        live.activity = p.activity || live.activity;
       }
       pane.innerHTML = `
         <h2 style="margin:0 0 8px">${esc(u.username)}
-          ${isOnline ? '<span class="tag ok">Online</span>' : '<span class="tag muted-tag">Offline</span>'}
+          ${arena ? '<span class="tag ok">In match</span>' : isOnline ? '<span class="tag ok">Online</span>' : '<span class="tag muted-tag">Offline</span>'}
         </h2>
-        <p class="muted">Role ${esc(u.role)} · Coins ${u.coins.toLocaleString()} · K/D ${p.kd} · Play ~${fmtDur(p.estimatedPlaytimeSec)}</p>
+        <p class="muted">Role ${esc(u.role)} · Coins ${Number(u.coins || 0).toLocaleString()} · K/D ${p.kd} · Play ~${fmtDur(p.estimatedPlaytimeSec)}</p>
         <p class="muted">IP ${esc(u.lastIp || '—')} · Device ${esc((u.deviceHash || '').slice(0, 12) || '—')}
-          ${arena ? ` · In ${esc(arena.mapName)} (${esc(arena.mode)}) · ${arena.count}/${arena.max}` : isOnline ? ' · Online but not in a match yet' : ''}</p>
+          ${arena ? ` · In ${esc(arena.mapName)} (${esc(arena.mode)}) · ${arena.count}/${arena.max}` : isOnline ? ` · ${p.activity === 'sp' ? 'In campaign' : 'In menu — not in multiplayer yet'}` : ''}</p>
         ${can(state, 'moderation.act') && arena ? `<div class="form-row">
           <button type="button" class="btn small primary" id="join-match-btn">Join their match</button>
         </div>
         <p class="muted">Opens the game in a new tab and puts you in <b>${esc(arena.mapName)}</b> (${esc(arena.mode)}) with this player.</p>`
-    : can(state, 'moderation.act') && isOnline ? `<p class="muted">Join appears when they are inside a live FFA/TDM match — ask them to start playing, then Refresh.</p>` : ''}
+    : can(state, 'moderation.act') && isOnline ? `<p class="muted">They must start <b>FFA/TDM</b> before Join appears. Wait a moment — this page auto-refreshes.</p>` : ''}
         ${can(state, 'economy.gift') ? `<div class="form-row">
           <input id="gift-amt" type="number" step="1" value="500" placeholder="500" />
           <button class="btn small primary" id="gift-btn">Gift coins</button>
@@ -179,7 +243,7 @@ export async function renderPlayers(root, state) {
         try {
           const { user } = await api(`/api/admin/users/${u.id}/coins`, { amount });
           toast(`Gifted ${amount > 0 ? '+' : ''}${amount.toLocaleString()} → ${user.coins.toLocaleString()} coins`);
-          const idx = users.findIndex((x) => x.id === user.id);
+          const idx = users.findIndex((x) => Number(x.id) === Number(user.id));
           if (idx >= 0) users[idx] = { ...users[idx], coins: user.coins };
           drawList();
           loadProfile(id);

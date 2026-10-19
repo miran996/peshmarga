@@ -169,7 +169,61 @@ function setupRealtime(io) {
       const id = normUserId(sock.user?.id);
       if (id != null) ids.add(id);
     }
+    // Anyone seated in an arena is online even if room bookkeeping lags.
+    for (const p of players.values()) {
+      const id = normUserId(p.userId);
+      if (id != null) ids.add(id);
+    }
     return ids;
+  }
+
+  /** Admin Players: online + in-match by userId (normalized numbers). */
+  function getAdminPresenceMap() {
+    const map = new Map();
+    const ensure = (rawId) => {
+      const id = normUserId(rawId);
+      if (id == null) return null;
+      let row = map.get(id);
+      if (!row) {
+        row = { online: false, arena: null, activity: null };
+        map.set(id, row);
+      }
+      return row;
+    };
+    for (const id of getOnlineUserIds()) {
+      const row = ensure(id);
+      if (row) row.online = true;
+    }
+    for (const p of players.values()) {
+      const row = ensure(p.userId);
+      if (!row || !p.arena) continue;
+      row.online = true;
+      row.activity = 'mp';
+      row.arena = {
+        mapId: p.arena.mapId,
+        mapName: p.arena.map?.name || p.arena.mapId,
+        mode: p.arena.mode,
+        count: p.arena.players.size,
+        max: maxPlayers(),
+        key: p.arena.key,
+        weather: p.arena.weather || weather,
+        quarantine: !!p.arena.quarantine,
+        tournament: !!p.arena.tournamentId,
+        username: p.username,
+        kills: p.kills,
+        deaths: p.deaths,
+        hp: Math.ceil(p.hp),
+        alive: !!p.alive,
+      };
+    }
+    for (const s of sessions.values()) {
+      const row = ensure(s.userId);
+      if (!row) continue;
+      row.online = true;
+      if (!row.arena && s.mode === 'single') row.activity = 'sp';
+      if (!row.arena && s.mode === 'multiplayer') row.activity = row.activity || 'mp';
+    }
+    return map;
   }
 
   function disconnectUser(userId, { reason, emitKick = false } = {}) {
@@ -219,6 +273,25 @@ function setupRealtime(io) {
       quarantine: !!p.arena.quarantine,
       tournament: !!p.arena.tournamentId,
     };
+  }
+
+  function getLiveMatchPlayers() {
+    return [...players.values()].map((p) => ({
+      userId: normUserId(p.userId),
+      username: p.username,
+      kills: p.kills,
+      deaths: p.deaths,
+      hp: Math.ceil(p.hp),
+      alive: !!p.alive,
+      mapId: p.arena?.mapId,
+      mapName: p.arena?.map?.name || p.arena?.mapId,
+      mode: p.arena?.mode,
+      count: p.arena?.players?.size || 0,
+      max: maxPlayers(),
+      key: p.arena?.key,
+      weather: p.arena?.weather || weather,
+      quarantine: !!p.arena?.quarantine,
+    })).filter((r) => r.userId != null && r.mapId);
   }
 
   const staffJoinTokens = new Map(); // token -> { arenaKey, mapId, mode, weather, targetUserId, targetUsername, byAdminId, exp }
@@ -634,7 +707,10 @@ function setupRealtime(io) {
     socket.on('disconnect', () => {
       // Presence after leave — delay so multi-tab reconnects settle.
       setTimeout(() => {
-        if (!userOnline(uid)) broadcastPresence(uid, false);
+        if (!userOnline(uid)) {
+          try { db.clearPresence(uid); } catch { /* ignore */ }
+          broadcastPresence(uid, false);
+        }
       }, 400);
     });
 
@@ -1125,6 +1201,8 @@ function setupRealtime(io) {
     },
     notifyFriendEvent,
     getOnlineUserIds,
+    getAdminPresenceMap,
+    getLiveMatchPlayers,
     disconnectUser,
     getUserArenaSummary,
     createStaffJoinToken,

@@ -1,11 +1,11 @@
-import { api, toast, can, setAuthToken } from './api.js?v=11';
-import { renderDashboard } from './views/dashboard.js?v=11';
-import { renderPlayers } from './views/players.js?v=11';
-import { renderEconomy } from './views/economy.js?v=11';
-import { renderModeration } from './views/moderation.js?v=11';
-import { renderLiveops } from './views/liveops.js?v=11';
-import { renderOrders } from './views/orders.js?v=11';
-import { renderAccount } from './views/account.js?v=11';
+import { api, toast, can, setAuthToken } from './api.js?v=12';
+import { renderDashboard } from './views/dashboard.js?v=12';
+import { renderPlayers } from './views/players.js?v=12';
+import { renderEconomy } from './views/economy.js?v=12';
+import { renderModeration } from './views/moderation.js?v=12';
+import { renderLiveops } from './views/liveops.js?v=12';
+import { renderOrders } from './views/orders.js?v=12';
+import { renderAccount } from './views/account.js?v=12';
 
 const state = { user: null, role: 'none', perms: [], view: 'dashboard' };
 const $ = (id) => document.getElementById(id);

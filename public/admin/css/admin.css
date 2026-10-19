@@ -107,6 +107,10 @@ table.data tr:hover td { background: rgba(255,255,255,0.02); }
 .warn-count { color: #e8b04a; }
 .card-warn { border-color: #e8b04a; }
 .row-online td { background: rgba(111, 191, 115, 0.06); }
+button.linkish {
+  background: none; border: 0; padding: 0; margin: 0; color: var(--admin-accent, #7eb8ff);
+  font: inherit; cursor: pointer; text-decoration: underline;
+}
 .tag.muted-tag { color: var(--admin-muted, #8a8f98); border-color: var(--admin-line); }
 .tag .dot-on, i.dot-on {
   display: inline-block; width: 7px; height: 7px; border-radius: 50%;

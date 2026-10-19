@@ -309,7 +309,7 @@ function sanitizeUser(u) {
   const role = u.role && u.role !== 'none' ? u.role : (u.is_admin ? 'super' : 'none');
   const avatar = u.avatar || null;
   return {
-    id: u.id,
+    id: Number(u.id),
     username: u.username,
     coins: u.coins,
     ownedWeapons,
