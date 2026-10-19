@@ -54,13 +54,31 @@ export async function renderPlayers(root, state) {
         <td class="num">${u.id}</td>
         <td class="player-name"><span class="player-name-text">${esc(u.username)}</span>${u.role && u.role !== 'none' ? ` <span class="tag warn">${esc(u.role)}</span>` : ''}</td>
         <td>${u.online
-    ? `<span class="tag ok"><i class="dot-on"></i> Online${u.arena ? ` · ${esc(u.arena.mapName)}` : ''}</span>`
+    ? `<span class="tag ok"><i class="dot-on"></i> Online${u.arena ? ` · ${esc(u.arena.mapName)}` : ''}</span>${
+      can(state, 'moderation.act') && u.arena
+        ? ` <button type="button" class="btn small primary join-row-btn" data-join="${u.id}">Join</button>`
+        : ''}`
     : `<span class="tag muted-tag">Offline</span>`}</td>
         <td class="coins-cell">${u.coins.toLocaleString()}</td>
         <td>${u.totalKills}/${u.totalDeaths}</td>
       </tr>`).join('') || '<tr><td colspan="5" class="empty">None</td></tr>';
-    list.querySelectorAll('[data-id]').forEach((tr) => tr.addEventListener('click', () => loadProfile(tr.dataset.id)));
+    list.querySelectorAll('[data-id]').forEach((tr) => tr.addEventListener('click', (e) => {
+      if (e.target.closest('[data-join]')) return;
+      loadProfile(tr.dataset.id);
+    }));
+    list.querySelectorAll('[data-join]').forEach((btn) => btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      joinMatch(btn.dataset.join);
+    }));
   };
+
+  async function joinMatch(userId) {
+    try {
+      const join = await api(`/api/admin/players/${userId}/join-match`, {});
+      toast(`Opening ${join.targetUsername}'s match…`);
+      window.open(join.url || `/?joinMatch=${join.token}`, '_blank', 'noopener');
+    } catch (e) { toast(e.message, true); }
+  }
 
   const loadUsers = async () => {
     const data = await api('/api/admin/users');
@@ -81,17 +99,24 @@ export async function renderPlayers(root, state) {
       const p = await api(`/api/admin/players/${id}`);
       const u = p.user;
       const live = users.find((x) => x.id === u.id);
+      const isOnline = !!(p.online ?? live?.online);
+      const arena = p.arena || live?.arena || null;
+      if (live) {
+        live.online = isOnline;
+        live.arena = arena;
+      }
       pane.innerHTML = `
         <h2 style="margin:0 0 8px">${esc(u.username)}
-          ${live?.online ? '<span class="tag ok">Online</span>' : '<span class="tag muted-tag">Offline</span>'}
+          ${isOnline ? '<span class="tag ok">Online</span>' : '<span class="tag muted-tag">Offline</span>'}
         </h2>
         <p class="muted">Role ${esc(u.role)} · Coins ${u.coins.toLocaleString()} · K/D ${p.kd} · Play ~${fmtDur(p.estimatedPlaytimeSec)}</p>
         <p class="muted">IP ${esc(u.lastIp || '—')} · Device ${esc((u.deviceHash || '').slice(0, 12) || '—')}
-          ${live?.arena ? ` · In ${esc(live.arena.mapName)} (${esc(live.arena.mode)}) · ${live.arena.count}/${live.arena.max}` : ''}</p>
-        ${can(state, 'moderation.act') && live?.online && live?.arena ? `<div class="form-row">
+          ${arena ? ` · In ${esc(arena.mapName)} (${esc(arena.mode)}) · ${arena.count}/${arena.max}` : isOnline ? ' · Online but not in a match yet' : ''}</p>
+        ${can(state, 'moderation.act') && arena ? `<div class="form-row">
           <button type="button" class="btn small primary" id="join-match-btn">Join their match</button>
         </div>
-        <p class="muted">Opens the game in a new tab and puts you in <b>${esc(live.arena.mapName)}</b> (${esc(live.arena.mode)}) with this player.</p>` : ''}
+        <p class="muted">Opens the game in a new tab and puts you in <b>${esc(arena.mapName)}</b> (${esc(arena.mode)}) with this player.</p>`
+    : can(state, 'moderation.act') && isOnline ? `<p class="muted">Join appears when they are inside a live FFA/TDM match — ask them to start playing, then Refresh.</p>` : ''}
         ${can(state, 'economy.gift') ? `<div class="form-row">
           <input id="gift-amt" type="number" step="1" value="500" placeholder="500" />
           <button class="btn small primary" id="gift-btn">Gift coins</button>
@@ -142,13 +167,8 @@ export async function renderPlayers(root, state) {
         </tr>`).join('') || '<tr><td colspan="4" class="empty">No active bans — player can play</td></tr>'}</tbody></table>
       `;
       if (can(state, '*')) pane.querySelector('#role-sel').value = u.role || 'none';
-      pane.querySelector('#join-match-btn')?.addEventListener('click', async () => {
-        try {
-          const join = await api(`/api/admin/players/${u.id}/join-match`, {});
-          toast(`Opening ${join.targetUsername}'s match…`);
-          window.open(join.url || `/?joinMatch=${join.token}`, '_blank', 'noopener');
-        } catch (e) { toast(e.message, true); }
-      });
+      pane.querySelector('#join-match-btn')?.addEventListener('click', () => joinMatch(u.id));
+      drawList();
       pane.querySelector('#gift-btn')?.addEventListener('click', async () => {
         const raw = pane.querySelector('#gift-amt')?.value;
         const amount = Math.trunc(Number(String(raw || '').replace(/[,+\s]/g, '')));

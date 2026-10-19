@@ -196,8 +196,10 @@ function setupRealtime(io) {
   }
 
   function findPlayerByUserId(userId) {
+    const id = normUserId(userId);
+    if (id == null) return null;
     for (const p of players.values()) {
-      if (p.userId === userId) return p;
+      if (normUserId(p.userId) === id) return p;
     }
     return null;
   }
