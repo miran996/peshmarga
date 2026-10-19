@@ -2,7 +2,29 @@ import { api, toast, esc, can } from '../api.js';
 
 export async function renderLiveops(root, state) {
   const data = await api('/api/admin/liveops');
+  const maxPl = data.maxPlayers ?? data.state?.max_players ?? 12;
   root.innerHTML = `
+    <section class="block">
+      <h2>Players per lobby (auto new server)</h2>
+      ${can(state, '*') ? `<div class="form-row">
+        <input id="max-pl" type="number" min="2" max="32" step="1" value="${Number(maxPl)}" style="width:100px" />
+        <button class="btn small primary" id="max-pl-btn">Save limit</button>
+      </div>` : `<p class="muted">Current limit: <b>${Number(maxPl)}</b></p>`}
+      <p class="muted">Players fill one lobby together. When it reaches this number, the next players automatically join a <b>new</b> server/lobby. Range 2–32.</p>
+    </section>
+    <section class="block">
+      <div class="block-head"><h2>Live public lobbies</h2>
+        <button class="btn small ghost" id="lobbies-refresh">Refresh</button>
+      </div>
+      <table class="data"><thead><tr><th>Lobby</th><th>Map</th><th>Mode</th><th>Players</th><th>Status</th></tr></thead>
+      <tbody id="live-lobbies">${(data.arenas || []).map((a) => `<tr>
+        <td><code>${esc(a.key)}</code></td>
+        <td>${esc(a.name)}</td>
+        <td>${esc(a.mode)}</td>
+        <td class="num">${a.count} / ${a.max}</td>
+        <td>${a.full ? '<span class="tag bad">Full → next opens new</span>' : a.count ? '<span class="tag ok">Open</span>' : '<span class="tag muted-tag">Empty</span>'}</td>
+      </tr>`).join('') || '<tr><td colspan="5" class="empty">No public lobbies yet</td></tr>'}</tbody></table>
+    </section>
     <section class="block">
       <h2>Global announcement</h2>
       ${can(state, 'liveops.announce') ? `<div class="form-row">
@@ -47,6 +69,18 @@ export async function renderLiveops(root, state) {
     </section>
   `;
 
+  root.querySelector('#max-pl-btn')?.addEventListener('click', async () => {
+    try {
+      const { maxPlayers } = await api('/api/admin/liveops/max-players', {
+        maxPlayers: Number(root.querySelector('#max-pl').value),
+      });
+      toast(`Lobby limit set to ${maxPlayers} — full lobbies open a new server`);
+      renderLiveops(root, state);
+    } catch (e) { toast(e.message, true); }
+  });
+  root.querySelector('#lobbies-refresh')?.addEventListener('click', () => {
+    renderLiveops(root, state).catch((e) => toast(e.message, true));
+  });
   root.querySelector('#ann-btn')?.addEventListener('click', async () => {
     try {
       await api('/api/admin/liveops/announce', { text: root.querySelector('#ann-text').value });

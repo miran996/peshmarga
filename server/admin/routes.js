@@ -263,11 +263,14 @@ function createAdminRouter({ db, auth, realtime }) {
 
   // ----- LiveOps -----
   router.get('/liveops', requirePerm(db, 'dashboard.view'), (req, res) => {
+    const mm = realtime.getMatchmaking?.() || {};
     res.json({
       state: db.getLiveopsState(),
       maps: MapLib.MAP_LIST,
       lobbies: db.listTournamentLobbies(),
       weatherOptions: ['clear', 'day', 'rain', 'night', 'fog'],
+      maxPlayers: db.getMaxArenaPlayers(),
+      arenas: mm.lobbies || [],
     });
   });
 
@@ -288,6 +291,15 @@ function createAdminRouter({ db, auth, realtime }) {
     const state = db.setLiveopsState({ weather });
     realtime.setWeather?.(weather);
     res.json({ state });
+  }));
+
+  router.post('/liveops/max-players', requirePerm(db, '*'), wrap((req, res) => {
+    const result = realtime.setMaxPlayers?.(req.body?.maxPlayers ?? req.body?.max);
+    if (!result) {
+      const state = db.setLiveopsState({ maxPlayers: req.body?.maxPlayers ?? req.body?.max });
+      return res.json({ maxPlayers: db.getMaxArenaPlayers(), state });
+    }
+    res.json(result);
   }));
 
   router.post('/liveops/map', requirePerm(db, '*'), wrap((req, res) => {

@@ -207,6 +207,7 @@ function initDb() {
       weather TEXT NOT NULL DEFAULT 'clear',
       preferred_map TEXT,
       announce TEXT,
+      max_players INTEGER NOT NULL DEFAULT 12,
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
     CREATE TABLE IF NOT EXISTS coin_pack_config (
@@ -243,6 +244,10 @@ function initDb() {
   const liveops = db.prepare('SELECT id FROM liveops_state WHERE id = 1').get();
   if (!liveops) {
     db.prepare(`INSERT INTO liveops_state (id, weather) VALUES (1, 'clear')`).run();
+  }
+  const liveopsCols = db.prepare('PRAGMA table_info(liveops_state)').all().map((c) => c.name);
+  if (!liveopsCols.includes('max_players')) {
+    db.exec(`ALTER TABLE liveops_state ADD COLUMN max_players INTEGER NOT NULL DEFAULT 12`);
   }
   const dc = db.prepare(`SELECT id FROM live_events WHERE id = 'double_coin'`).get();
   if (!dc) {
@@ -1126,14 +1131,31 @@ function getLiveopsState() {
   return db.prepare('SELECT * FROM liveops_state WHERE id = 1').get();
 }
 
-function setLiveopsState({ weather, preferredMap, announce }) {
+function getMaxArenaPlayers() {
+  const row = getLiveopsState();
+  const n = Number(row?.max_players);
+  if (Number.isFinite(n) && n >= 2 && n <= 32) return Math.floor(n);
+  const env = Number(process.env.MAX_ARENA_PLAYERS);
+  return Number.isFinite(env) && env >= 2 ? Math.min(32, Math.floor(env)) : 12;
+}
+
+function setLiveopsState({ weather, preferredMap, announce, maxPlayers }) {
   const cur = getLiveopsState();
+  let maxPl = cur.max_players;
+  if (maxPlayers !== undefined && maxPlayers !== null && maxPlayers !== '') {
+    const n = Math.floor(Number(maxPlayers));
+    if (!Number.isFinite(n) || n < 2 || n > 32) {
+      throw httpError(400, 'Max players must be between 2 and 32.');
+    }
+    maxPl = n;
+  }
   db.prepare(
-    `UPDATE liveops_state SET weather = ?, preferred_map = ?, announce = ?, updated_at = datetime('now') WHERE id = 1`
+    `UPDATE liveops_state SET weather = ?, preferred_map = ?, announce = ?, max_players = ?, updated_at = datetime('now') WHERE id = 1`
   ).run(
     weather != null ? weather : cur.weather,
     preferredMap !== undefined ? preferredMap : cur.preferred_map,
-    announce !== undefined ? announce : cur.announce
+    announce !== undefined ? announce : cur.announce,
+    maxPl
   );
   return getLiveopsState();
 }
@@ -1372,6 +1394,7 @@ module.exports = {
   evaluateSessionHeuristics,
   getAnalyticsSnapshot,
   getLiveopsState,
+  getMaxArenaPlayers,
   setLiveopsState,
   createTournamentLobby,
   listTournamentLobbies,

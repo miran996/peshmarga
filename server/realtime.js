@@ -127,7 +127,8 @@ function setupRealtime(io) {
     };
   }
 
-  const MAX_ARENA_PLAYERS = Number(process.env.MAX_ARENA_PLAYERS) || 12;
+  const DEFAULT_MAX_ARENA = Number(process.env.MAX_ARENA_PLAYERS) || 12;
+  let arenaInstanceSeq = 1;
   const tournamentArenas = new Map(); // lobbyId -> arena key
   const partyInvites = new Map(); // token -> { fromId, toId, arenaKey, mapId, mode, exp }
   const WEATHERS = new Set(['clear', 'day', 'night', 'fog', 'rain']);
@@ -135,6 +136,14 @@ function setupRealtime(io) {
   let weather = normalizeWeather(db.getLiveopsState()?.weather || 'clear');
   let preferredMapOverride = db.getLiveopsState()?.preferred_map || null;
   let lastTickMs = 50;
+
+  function maxPlayers() {
+    try {
+      return db.getMaxArenaPlayers();
+    } catch {
+      return DEFAULT_MAX_ARENA;
+    }
+  }
 
   function normUserId(id) {
     const n = Number(id);
@@ -201,7 +210,7 @@ function setupRealtime(io) {
       mapName: p.arena.map?.name || p.arena.mapId,
       mode: p.arena.mode,
       count: p.arena.players.size,
-      max: MAX_ARENA_PLAYERS,
+      max: maxPlayers(),
     };
   }
 
@@ -225,6 +234,15 @@ function setupRealtime(io) {
   }
 
   // ------------------------------------------------------------ arenas
+  function makeArena(key, mapId, mode, { quarantine = false, tournamentId = null } = {}) {
+    return {
+      key, mapId, mode, map: MAPS[mapId], room: `arena:${key}`, players: new Map(), rockets: [], fires: [],
+      score: { red: 0, blue: 0 }, state: 'playing', endsAt: Date.now() + TDM.timeLimitSec * 1000, nextRoundAt: 0,
+      quarantine: !!quarantine, tournamentId: tournamentId || null,
+      weather,
+    };
+  }
+
   function arenaFor(mapId, mode, { quarantine = false, tournamentId = null } = {}) {
     const key = tournamentId
       ? `tour:${tournamentId}`
@@ -233,36 +251,55 @@ function setupRealtime(io) {
         : `${mapId}:${mode}`;
     let a = arenas.get(key);
     if (!a) {
-      a = {
-        key, mapId, mode, map: MAPS[mapId], room: `arena:${key}`, players: new Map(), rockets: [], fires: [],
-        score: { red: 0, blue: 0 }, state: 'playing', endsAt: Date.now() + TDM.timeLimitSec * 1000, nextRoundAt: 0,
-        quarantine: !!quarantine, tournamentId: tournamentId || null,
-        weather,
-      };
+      a = makeArena(key, mapId, mode, { quarantine, tournamentId });
       arenas.set(key, a);
     }
     return a;
   }
 
+  /** New public lobby instance — used when every open lobby is full. */
+  function createPublicArena(mapId, mode) {
+    const id = arenaInstanceSeq++;
+    const key = `${mapId}:${mode}:#${id}`;
+    const a = makeArena(key, mapId, mode);
+    arenas.set(key, a);
+    return a;
+  }
+
   /**
-   * Matchmaking: pack players into the same live lobby for this mode.
-   * Preferred map is used only when no open lobby exists (or every lobby is full → new map).
-   * Shadow-banned players are isolated in quarantine arenas.
+   * Matchmaking: pack into the fullest open lobby under the cap.
+   * When all lobbies are full, open a fresh server instance on the preferred map.
    */
   function findArena(preferredMapId, mode, { quarantine = false } = {}) {
     if (quarantine) {
       const preferred = MapLib.hasMap(preferredMapId) ? preferredMapId : MapLib.DEFAULT_MAP;
       return arenaFor(preferred, mode, { quarantine: true });
     }
+    const cap = maxPlayers();
     const preferred = preferredMapOverride && MapLib.hasMap(preferredMapOverride)
       ? preferredMapOverride
       : (MapLib.hasMap(preferredMapId) ? preferredMapId : MapLib.DEFAULT_MAP);
-    const open = [...arenas.values()]
-      .filter((a) => a.mode === mode && !a.quarantine && !a.tournamentId
-        && a.players.size > 0 && a.players.size < MAX_ARENA_PLAYERS)
+
+    const open = [...arenas.values()].filter((a) => (
+      a.mode === mode && !a.quarantine && !a.tournamentId
+      && a.players.size > 0 && a.players.size < cap
+    ));
+
+    const onPreferred = open
+      .filter((a) => a.mapId === preferred)
       .sort((a, b) => b.players.size - a.players.size || a.key.localeCompare(b.key));
-    if (open.length) return open[0];
-    return arenaFor(preferred, mode);
+    if (onPreferred.length) return onPreferred[0];
+
+    const anyOpen = open.sort((a, b) => b.players.size - a.players.size || a.key.localeCompare(b.key));
+    if (anyOpen.length) return anyOpen[0];
+
+    // Reuse an empty public lobby on the preferred map if one exists.
+    const empty = [...arenas.values()].find((a) => (
+      a.mapId === preferred && a.mode === mode && !a.quarantine && !a.tournamentId && a.players.size === 0
+    ));
+    if (empty) return empty;
+
+    return createPublicArena(preferred, mode);
   }
 
   const roundInfo = (a) => (a.mode === 'tdm'
@@ -549,7 +586,7 @@ function setupRealtime(io) {
         if (p.arena.quarantine || p.arena.tournamentId) {
           return reply({ ok: false, error: 'Cannot invite from this lobby' });
         }
-        if (p.arena.players.size >= MAX_ARENA_PLAYERS) {
+        if (p.arena.players.size >= maxPlayers()) {
           return reply({ ok: false, error: 'Arena full' });
         }
       }
@@ -571,7 +608,7 @@ function setupRealtime(io) {
         mode,
         inArena: !!p?.arena,
         count: p?.arena?.players.size || 0,
-        max: MAX_ARENA_PLAYERS,
+        max: maxPlayers(),
         expiresIn: 120,
       });
       reply({ ok: true, token });
@@ -661,7 +698,7 @@ function setupRealtime(io) {
         usedInvite = true;
         if (inv.arenaKey) {
           a = arenas.get(inv.arenaKey);
-          if (!a || a.quarantine || a.tournamentId || a.players.size >= MAX_ARENA_PLAYERS) {
+          if (!a || a.quarantine || a.tournamentId || a.players.size >= maxPlayers()) {
             a = findArena(inv.mapId, inv.mode, { quarantine: db.isShadowBanned(user.id) });
           }
         } else {
@@ -678,6 +715,10 @@ function setupRealtime(io) {
       } else {
         const quarantine = db.isShadowBanned(user.id);
         a = findArena(preferredMap, mode, { quarantine });
+      }
+      // Safety: never seat into a full public lobby — open another server.
+      if (!a.quarantine && !a.tournamentId && a.players.size >= maxPlayers()) {
+        a = createPublicArena(a.mapId, a.mode);
       }
       // First player into an empty lobby sets the match weather.
       if (a.players.size === 0) a.weather = normalizeWeather(data?.weather || weather);
@@ -708,7 +749,8 @@ function setupRealtime(io) {
         ok: true, selfId: socket.id, mapId, mode: a.mode, team: p.team, spawn: { ...p.pos, yaw: p.yaw }, loadout, lethal, perk,
         grenades: p.grenades, round: roundInfo(a), matched: mapId !== preferredMap && !lobbyId && !usedInvite,
         players: [...a.players.values()].filter((o) => o !== p).map(publicPlayer),
-        capacity: { count: a.players.size, max: MAX_ARENA_PLAYERS },
+        capacity: { count: a.players.size, max: maxPlayers() },
+        lobbyKey: a.key,
         weather: matchWeather, quarantine: !!a.quarantine, party: usedInvite,
       });
     });
@@ -1110,18 +1152,34 @@ function setupRealtime(io) {
       return counts;
     },
     getMatchmaking() {
+      const cap = maxPlayers();
       const counts = this.getArenaCounts();
       const live = {};
+      const lobbies = [];
+      for (const a of arenas.values()) {
+        if (a.quarantine || a.tournamentId) continue;
+        lobbies.push({
+          key: a.key,
+          mapId: a.mapId,
+          name: a.map?.name || a.mapId,
+          mode: a.mode,
+          count: a.players.size,
+          max: cap,
+          full: a.players.size >= cap,
+        });
+      }
+      lobbies.sort((a, b) => b.count - a.count || a.key.localeCompare(b.key));
       for (const mode of Object.keys(MODES)) {
-        const open = [...arenas.values()]
-          .filter((a) => a.mode === mode && !a.quarantine && !a.tournamentId
-            && a.players.size > 0 && a.players.size < MAX_ARENA_PLAYERS)
-          .sort((a, b) => b.players.size - a.players.size);
+        const open = lobbies.filter((l) => l.mode === mode && l.count > 0 && !l.full);
         live[mode] = open[0]
-          ? { mapId: open[0].mapId, name: open[0].map.name, count: open[0].players.size, max: MAX_ARENA_PLAYERS }
+          ? { mapId: open[0].mapId, name: open[0].name, count: open[0].count, max: cap, key: open[0].key }
           : null;
       }
-      return { counts, live, maxPlayers: MAX_ARENA_PLAYERS };
+      return { counts, live, lobbies, maxPlayers: cap };
+    },
+    setMaxPlayers(n) {
+      const state = db.setLiveopsState({ maxPlayers: n });
+      return { maxPlayers: db.getMaxArenaPlayers(), state };
     },
   };
 }
