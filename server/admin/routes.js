@@ -59,14 +59,34 @@ function createAdminRouter({ db, auth, realtime }) {
       .map((u) => ({
         ...u,
         online: online.has(Number(u.id)),
-        arena: realtime.getUserArenaSummary?.(u.id) || null,
+        arena: realtime.getUserArenaSummary?.(u.id, { includeRestricted: true }) || null,
       }));
     users.sort((a, b) => Number(b.online) - Number(a.online) || a.username.localeCompare(b.username));
     res.json({ users, onlineCount: users.filter((u) => u.online).length });
   });
 
   router.get('/players/:id', requirePerm(db, 'players.view'), wrap((req, res) => {
-    res.json(db.getPlayerProfile(req.params.id));
+    const profile = db.getPlayerProfile(req.params.id);
+    const arena = realtime.getUserArenaSummary?.(profile.user.id, { includeRestricted: true }) || null;
+    res.json({ ...profile, arena, online: !!(realtime.getOnlineUserIds?.().has(Number(profile.user.id))) });
+  }));
+
+  /** Staff opens the main game and joins this player's live lobby. */
+  router.post('/players/:id/join-match', requirePerm(db, 'moderation.act'), wrap((req, res) => {
+    const targetId = Number(req.params.id);
+    if (!targetId) return res.status(400).json({ error: 'Invalid player' });
+    const join = realtime.createStaffJoinToken?.({
+      targetUserId: targetId,
+      byAdminId: req.adminUser.id,
+    });
+    if (!join) return res.status(400).json({ error: 'Player is not in a live match' });
+    db.logModAction?.({
+      action: 'join_match',
+      targetUserId: targetId,
+      reason: `${join.mapId}:${join.mode}`,
+      by: req.adminUser.username,
+    });
+    res.json(join);
   }));
 
   router.get('/chat', requirePerm(db, 'players.view'), (req, res) => {

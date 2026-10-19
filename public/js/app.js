@@ -26,6 +26,7 @@ const state = {
   perk: ['doubletime', 'quickfix', 'trophy'].includes(localStorage.getItem('fps_perk')) ? localStorage.getItem('fps_perk') : 'doubletime',
   pendingKind: null,
   inviteToken: null,
+  staffJoinToken: null,
   pendingInvite: null,
   /** Operator portrait id from character sheet — ready for mp backend. */
   selectedCharacter,
@@ -1130,6 +1131,10 @@ async function startGame(kind) {
     mode.inviteToken = state.inviteToken;
     state.inviteToken = null;
   }
+  if (kind === 'mp' && state.staffJoinToken) {
+    mode.staffJoinToken = state.staffJoinToken;
+    state.staffJoinToken = null;
+  }
   $('pause-settings').classList.add('hidden');
   try {
     await g.start(mode, { loadout, cosmetic, user: u, lethal: state.lethal, perk: state.perk });
@@ -1483,6 +1488,13 @@ renderKeybinds();
 
 // ---------------------------------------------------------------- boot
 (async function boot() {
+  const joinMatchParam = new URLSearchParams(location.search).get('joinMatch');
+  if (joinMatchParam) {
+    try {
+      sessionStorage.setItem('fps_staff_join', joinMatchParam);
+      history.replaceState({}, '', location.pathname || '/');
+    } catch { /* ignore */ }
+  }
   try {
     state.catalog = await api('/api/catalog');
   } catch {
@@ -1501,7 +1513,32 @@ renderKeybinds();
   try {
     const { user } = await api('/api/me');
     enterMenu(user);
+    await maybeStaffJoinMatch();
   } catch {
     show('screen-auth');
   }
 })();
+
+async function maybeStaffJoinMatch() {
+  let token = null;
+  try { token = sessionStorage.getItem('fps_staff_join'); } catch { /* ignore */ }
+  if (!token) return;
+  try { sessionStorage.removeItem('fps_staff_join'); } catch { /* ignore */ }
+  if (!state.user?.isAdmin) {
+    toast(t('toast.staffJoinDenied') || 'Staff account required to join that match', true);
+    return;
+  }
+  try {
+    const info = await api(`/api/staff-join/${encodeURIComponent(token)}`);
+    state.mapId = info.mapId;
+    state.mpMode = info.mode === 'tdm' ? 'tdm' : 'ffa';
+    if (info.weather) state.weather = info.weather;
+    state.staffJoinToken = token;
+    localStorage.setItem('fps_map', info.mapId);
+    localStorage.setItem('fps_mpmode', state.mpMode);
+    toast(t('toast.staffJoin', { name: info.targetUsername, map: info.mapName }) || `Joining ${info.targetUsername} · ${info.mapName}`);
+    await startGame('mp');
+  } catch (err) {
+    toast(err.message || 'Could not join match', true);
+  }
+}

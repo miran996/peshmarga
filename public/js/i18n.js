@@ -38,6 +38,8 @@ const en = {
   'nav.logout': 'Log out',
   'nav.admin': 'Admin',
   'toast.adminPlay': 'Staff account — use Admin for the panel, or play from this menu.',
+  'toast.staffJoin': 'Joining {name} · {map}',
+  'toast.staffJoinDenied': 'Staff account required to join that match',
   'nav.lang': 'Language',
 
   // Play
@@ -362,6 +364,8 @@ const ku = {
   'nav.logout': 'دەرچوون',
   'nav.admin': 'ئەدمین',
   'toast.adminPlay': 'هەژماری ستاف — Admin بۆ پانێڵ، یان لێرەوە یاری بکە.',
+  'toast.staffJoin': 'چوونە ناو یاری {name} · {map}',
+  'toast.staffJoinDenied': 'تەنها ستاف دەتوانێت بچێتە ئەو یارییە',
   'nav.lang': 'زمان',
 
   'play.title': 'دەسپێکردن',

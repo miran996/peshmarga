@@ -87,7 +87,11 @@ export async function renderPlayers(root, state) {
         </h2>
         <p class="muted">Role ${esc(u.role)} · Coins ${u.coins.toLocaleString()} · K/D ${p.kd} · Play ~${fmtDur(p.estimatedPlaytimeSec)}</p>
         <p class="muted">IP ${esc(u.lastIp || '—')} · Device ${esc((u.deviceHash || '').slice(0, 12) || '—')}
-          ${live?.arena ? ` · In ${esc(live.arena.mapName)} (${esc(live.arena.mode)})` : ''}</p>
+          ${live?.arena ? ` · In ${esc(live.arena.mapName)} (${esc(live.arena.mode)}) · ${live.arena.count}/${live.arena.max}` : ''}</p>
+        ${can(state, 'moderation.act') && live?.online && live?.arena ? `<div class="form-row">
+          <button type="button" class="btn small primary" id="join-match-btn">Join their match</button>
+        </div>
+        <p class="muted">Opens the game in a new tab and puts you in <b>${esc(live.arena.mapName)}</b> (${esc(live.arena.mode)}) with this player.</p>` : ''}
         ${can(state, 'economy.gift') ? `<div class="form-row">
           <input id="gift-amt" type="number" step="1" value="500" placeholder="500" />
           <button class="btn small primary" id="gift-btn">Gift coins</button>
@@ -138,6 +142,13 @@ export async function renderPlayers(root, state) {
         </tr>`).join('') || '<tr><td colspan="4" class="empty">No active bans — player can play</td></tr>'}</tbody></table>
       `;
       if (can(state, '*')) pane.querySelector('#role-sel').value = u.role || 'none';
+      pane.querySelector('#join-match-btn')?.addEventListener('click', async () => {
+        try {
+          const join = await api(`/api/admin/players/${u.id}/join-match`, {});
+          toast(`Opening ${join.targetUsername}'s match…`);
+          window.open(join.url || `/?joinMatch=${join.token}`, '_blank', 'noopener');
+        } catch (e) { toast(e.message, true); }
+      });
       pane.querySelector('#gift-btn')?.addEventListener('click', async () => {
         const raw = pane.querySelector('#gift-amt')?.value;
         const amount = Math.trunc(Number(String(raw || '').replace(/[,+\s]/g, '')));

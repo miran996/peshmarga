@@ -219,6 +219,24 @@ app.get('/api/leaderboard', auth.authMiddleware, (req, res) => {
 
 app.get('/api/arenas', auth.authMiddleware, (req, res) => res.json(realtime.getMatchmaking()));
 
+app.get('/api/staff-join/:token', auth.authMiddleware, wrap((req, res) => {
+  const user = db.getUserById(req.user.id);
+  if (!user?.isAdmin) return res.status(403).json({ error: 'Staff only' });
+  const info = realtime.peekStaffJoinToken?.(String(req.params.token || ''));
+  if (!info) return res.status(404).json({ error: 'Join link expired or match ended' });
+  res.json({
+    token: req.params.token,
+    mapId: info.mapId,
+    mapName: info.mapName || info.mapId,
+    mode: info.mode,
+    weather: info.weather,
+    targetUsername: info.targetUsername,
+    targetUserId: info.targetUserId,
+    count: info.count,
+    max: info.max || realtime.getMatchmaking?.()?.maxPlayers,
+  });
+}));
+
 app.get('/api/me', auth.authMiddleware, wrap((req, res) => {
   const user = db.getUserById(req.user.id);
   if (!user) return res.status(401).json({ error: 'Account no longer exists' });

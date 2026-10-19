@@ -423,10 +423,12 @@ export class MultiplayerMode {
       lobbyId: this.lobbyId || undefined,
       lobbyPassword: this.lobbyPassword || undefined,
       inviteToken: this.inviteToken || undefined,
+      staffJoinToken: this.staffJoinToken || undefined,
       characterId: localStorage.getItem('fps_selected_character') || undefined,
     });
     if (!res?.ok) throw new Error(res?.error || 'Could not join arena');
     this.inviteToken = null;
+    this.staffJoinToken = null;
     if (res.loadout.join() !== g.slots.map((s) => s.id).join()) g.setLoadout(res.loadout);
     g.setLethal(res.lethal);
     if (res.perk) g.setPerk(res.perk);

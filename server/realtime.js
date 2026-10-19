@@ -202,16 +202,82 @@ function setupRealtime(io) {
     return null;
   }
 
-  function getUserArenaSummary(userId) {
+  function getUserArenaSummary(userId, { includeRestricted = false } = {}) {
     const p = findPlayerByUserId(userId);
-    if (!p?.arena || p.arena.quarantine || p.arena.tournamentId) return null;
+    if (!p?.arena) return null;
+    if (!includeRestricted && (p.arena.quarantine || p.arena.tournamentId)) return null;
     return {
       mapId: p.arena.mapId,
       mapName: p.arena.map?.name || p.arena.mapId,
       mode: p.arena.mode,
       count: p.arena.players.size,
       max: maxPlayers(),
+      key: p.arena.key,
+      weather: p.arena.weather || weather,
+      quarantine: !!p.arena.quarantine,
+      tournament: !!p.arena.tournamentId,
     };
+  }
+
+  const staffJoinTokens = new Map(); // token -> { arenaKey, mapId, mode, weather, targetUserId, targetUsername, byAdminId, exp }
+
+  function purgeStaffJoinTokens() {
+    const now = Date.now();
+    for (const [tok, inv] of staffJoinTokens) {
+      if (inv.exp < now) staffJoinTokens.delete(tok);
+    }
+  }
+
+  /** One-time token so staff can open the game client and land in a player's live arena. */
+  function createStaffJoinToken({ targetUserId, byAdminId }) {
+    purgeStaffJoinTokens();
+    const p = findPlayerByUserId(Number(targetUserId));
+    if (!p?.arena) {
+      throw Object.assign(new Error('Player is not in a live match'), { status: 400 });
+    }
+    const token = require('crypto').randomBytes(12).toString('hex');
+    staffJoinTokens.set(token, {
+      arenaKey: p.arena.key,
+      mapId: p.arena.mapId,
+      mode: p.arena.mode,
+      weather: p.arena.weather || weather,
+      targetUserId: p.userId,
+      targetUsername: p.username,
+      byAdminId: Number(byAdminId),
+      exp: Date.now() + 120_000,
+    });
+    return {
+      token,
+      mapId: p.arena.mapId,
+      mapName: p.arena.map?.name || p.arena.mapId,
+      mode: p.arena.mode,
+      weather: p.arena.weather || weather,
+      targetUserId: p.userId,
+      targetUsername: p.username,
+      count: p.arena.players.size,
+      max: maxPlayers(),
+      expiresIn: 120,
+      url: `/?joinMatch=${token}`,
+    };
+  }
+
+  function peekStaffJoinToken(token) {
+    purgeStaffJoinTokens();
+    const inv = staffJoinTokens.get(token);
+    if (!inv || inv.exp < Date.now()) return null;
+    const a = arenas.get(inv.arenaKey);
+    if (!a) return null;
+    return { ...inv, count: a.players.size, mapName: a.map?.name || inv.mapId };
+  }
+
+  function consumeStaffJoinToken(token, joiningUserId) {
+    purgeStaffJoinTokens();
+    const inv = staffJoinTokens.get(token);
+    if (!inv || inv.exp < Date.now()) return null;
+    staffJoinTokens.delete(token);
+    const a = arenas.get(inv.arenaKey);
+    if (!a) return null;
+    return { arena: a, inv, joiningUserId: Number(joiningUserId) };
   }
 
   function notifyFriendEvent(userId, event, payload) {
@@ -685,7 +751,16 @@ function setupRealtime(io) {
       leaveArena(socket);
       let a;
       let usedInvite = false;
-      if (inviteToken) {
+      let usedStaffJoin = false;
+      const staffJoinToken = typeof data?.staffJoinToken === 'string' ? data.staffJoinToken.slice(0, 64) : null;
+      if (staffJoinToken) {
+        const staffUser = db.getUserById(socket.user.id);
+        if (!staffUser?.isAdmin) return ack({ ok: false, error: 'Staff only' });
+        const consumed = consumeStaffJoinToken(staffJoinToken, socket.user.id);
+        if (!consumed) return ack({ ok: false, error: 'Join link expired or match ended' });
+        a = consumed.arena;
+        usedStaffJoin = true;
+      } else if (inviteToken) {
         purgePartyInvites();
         const inv = partyInvites.get(inviteToken);
         if (!inv || inv.toId !== user.id || inv.exp < Date.now()) {
@@ -716,8 +791,8 @@ function setupRealtime(io) {
         const quarantine = db.isShadowBanned(user.id);
         a = findArena(preferredMap, mode, { quarantine });
       }
-      // Safety: never seat into a full public lobby — open another server.
-      if (!a.quarantine && !a.tournamentId && a.players.size >= maxPlayers()) {
+      // Safety: never seat into a full public lobby — open another server (staff join may exceed cap).
+      if (!usedStaffJoin && !a.quarantine && !a.tournamentId && a.players.size >= maxPlayers()) {
         a = createPublicArena(a.mapId, a.mode);
       }
       // First player into an empty lobby sets the match weather.
@@ -751,7 +826,7 @@ function setupRealtime(io) {
         players: [...a.players.values()].filter((o) => o !== p).map(publicPlayer),
         capacity: { count: a.players.size, max: maxPlayers() },
         lobbyKey: a.key,
-        weather: matchWeather, quarantine: !!a.quarantine, party: usedInvite,
+        weather: matchWeather, quarantine: !!a.quarantine, party: usedInvite, staffJoin: usedStaffJoin,
       });
     });
 
@@ -1050,6 +1125,8 @@ function setupRealtime(io) {
     getOnlineUserIds,
     disconnectUser,
     getUserArenaSummary,
+    createStaffJoinToken,
+    peekStaffJoinToken,
     userOnline,
     renameUser(userId, username) {
       for (const [sid, s] of sessions) {
