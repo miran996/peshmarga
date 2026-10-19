@@ -26,10 +26,9 @@ const FALLBACK_PATHS = {
   stick_grenade: '/models/stick_grenade/model.gltf',
 };
 
-/** Map gameplay kinds → Poly Haven asset ids (variants for variety). */
+/** Map gameplay kinds → Poly Haven asset ids (variants for variety).
+ *  Cars / buses / trucks use procedural vehicles3d meshes instead. */
 export const KIND_ASSETS = {
-  car: ['covered_car'],
-  bus: ['covered_car'],
   barrel: ['Barrel_01'],
   crate: ['old_military_crate', 'wooden_military_crate', 'ammo_box'],
   barrier: ['concrete_road_barrier'],

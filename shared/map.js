@@ -330,55 +330,45 @@
     }
 
     function car(x, z, alongX, style, palette) {
-      const L = 4.2, W = 1.9;
+      const L = 4.35, W = 1.95;
       const w = alongX ? L : W, d = alongX ? W : L;
       const color = pick(palette || CAR_COLORS);
-      if (style === 'flipped') {
-        box(x, 0, z, w, 1.25, d, 'car', color);
-        box(x, 0, z, alongX ? 2.2 : 1.7, 0.1, alongX ? 1.7 : 2.2, 'car', '#1a1a1a');
-      } else {
-        box(x, 0, z, w, 1.1, d, 'car', color);
-        const crushed = style === 'crushed';
-        const off = 0.25;
-        box(x + (alongX ? -off : 0), 1.1, z + (alongX ? 0 : -off), alongX ? 2.2 : W - 0.2, crushed ? 0.3 : 0.62,
-          alongX ? W - 0.2 : 2.2, 'car', '#1f2226');
-      }
-      const wy = style === 'flipped' ? 1.45 : 0.38;
-      for (const [a, b] of [[-1.35, -0.85], [1.35, -0.85], [-1.35, 0.85], [1.35, 0.85]]) {
-        if (R() < 0.2) continue;
-        deco({ type: 'cyl', x: x + (alongX ? a : b), y: wy, z: z + (alongX ? b : a), r: 0.38, h: 0.28, color: '#141414',
-          rx: alongX ? Math.PI / 2 : 0, rz: alongX ? 0 : Math.PI / 2, surface: 'plain' });
-      }
+      const st = style === 'flipped' || style === 'crushed' ? style : 'intact';
+      const h = st === 'flipped' ? 1.4 : st === 'crushed' ? 1.15 : 1.65;
+      box(x, 0, z, w, h, d, 'car', color, {
+        vehicleType: 'sedan',
+        vehicleStyle: st,
+        alongX: !!alongX,
+        rotY: alongX ? 0 : Math.PI / 2,
+      });
       deco({ type: 'disc', x, z, r: 2.6, color: '#24211e', y: 0.025 });
     }
 
     function bus(x, z, color) {
-      box(x, 0, z, 10, 2.7, 2.5, 'bus', color);
-      box(x, 2.7, z, 9.4, 0.15, 2.3, 'bus', '#3a3526');
-      for (const [a, b] of [[-3.8, -1.1], [3.8, -1.1], [-3.8, 1.1], [3.8, 1.1]]) {
-        deco({ type: 'cyl', x: x + a, y: 0.45, z: z + b, r: 0.45, h: 0.3, color: '#141414', rx: Math.PI / 2, surface: 'plain' });
-      }
+      const paint = color || pick(['#8f8458', '#5a6a7a', '#6a4a3a', '#3a5a4a']);
+      box(x, 0, z, 10.2, 2.85, 2.55, 'bus', paint, {
+        vehicleType: 'bus',
+        vehicleStyle: 'intact',
+        alongX: true,
+        rotY: 0,
+      });
+      deco({ type: 'disc', x, z, r: 4.2, color: '#24211e', y: 0.025 });
     }
 
-    /** Semi truck: cab, chassis and either a container or a flatbed load. */
+    /** Semi truck: single collision footprint; 3D cab + cargo rendered client-side. */
     function truck(x, z, alongX, cargo = 'container', cabPalette) {
-      const part = (off, len, wid, y0, h, kind, color) => (alongX
-        ? box(x + off, y0, z, len, h, wid, kind, color)
-        : box(x, y0, z + off, wid, h, len, kind, color));
-      part(-4.4, 2.2, 2.4, 0, 2.6, 'car', pick(cabPalette || ['#6a2f26', '#2f4f5f', '#a39a88', '#3b3431']));
-      part(0.3, 7.2, 2.4, 0, 1.2, 'car', '#2a2c30');
-      if (cargo === 'container') part(0.3, 7.0, 2.44, 1.2, 2.6, 'container', pick(CONTAINER_COLORS));
-      else part(0.3, 6.6, 2.2, 1.2, 1.2, 'crate', '#6e5234');
-      for (const a of [-4.6, -1.8, 2.2, 3.4]) {
-        for (const b of [-1.25, 1.25]) {
-          deco({ type: 'cyl', x: x + (alongX ? a : b), y: 0.5, z: z + (alongX ? b : a), r: 0.5, h: 0.35, color: '#141414',
-            rx: alongX ? Math.PI / 2 : 0, rz: alongX ? 0 : Math.PI / 2, surface: 'plain' });
-        }
-      }
-      deco(alongX
-        ? { type: 'box', x: x - 5.52, y: 1.9, z, w: 0.05, h: 0.8, d: 2.1, color: '#1b1f24', surface: 'plain' }
-        : { type: 'box', x, y: 1.9, z: z - 5.52, w: 2.1, h: 0.8, d: 0.05, color: '#1b1f24', surface: 'plain' });
-      deco({ type: 'disc', x, z, r: 4.6, color: '#24211e', y: 0.025 });
+      const paint = pick(cabPalette || ['#6a2f26', '#2f4f5f', '#a39a88', '#3b3431']);
+      const len = 11.2, wid = 2.55;
+      const h = cargo === 'container' ? 3.7 : 2.7;
+      const w = alongX ? len : wid, d = alongX ? wid : len;
+      box(x, 0, z, w, h, d, 'truck', paint, {
+        vehicleType: 'truck',
+        vehicleStyle: 'intact',
+        cargo: cargo === 'flatbed' ? 'flatbed' : 'container',
+        alongX: !!alongX,
+        rotY: alongX ? 0 : Math.PI / 2,
+      });
+      deco({ type: 'disc', x, z, r: 4.8, color: '#24211e', y: 0.025 });
     }
 
     function container(x, z, alongX, y0 = 0) {

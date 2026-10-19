@@ -4,7 +4,7 @@ import { binds, formatCode } from '../keybinds.js';
 const $ = (id) => document.getElementById(id);
 
 const KIND_COLORS = {
-  wall: '#cfc6b4', boundary: '#6b6e73', car: '#8a6a58', bus: '#8f8458', container: '#6d8190', barrier: '#a5a29a',
+  wall: '#cfc6b4', boundary: '#6b6e73', car: '#8a6a58', bus: '#8f8458', truck: '#5a6a78', container: '#6d8190', barrier: '#a5a29a',
   sandbag: '#9a8a66', crate: '#8a6e4a', rubble: '#7d776d', tree: '#3a302b', pole: '#3a302b',
   platform: '#9a8570', pillar: '#6a5a4a', stair: '#9a8570', rail: '#6a5a4a',
   rack: '#8c8f93', crane: '#c7792b', rock: '#8a7a66', tent: '#8f8a6a', foliage: '#2e4a38', log: '#6a4d36',

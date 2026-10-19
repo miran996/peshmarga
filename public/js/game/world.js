@@ -4,6 +4,7 @@ import { surfaceTextures } from './textures.js';
 import {
   KIND_ASSETS, DEBRIS_ASSETS, placeGltf, preloadGltf, loadGltf, cloneGltf, fitGltf,
 } from '../graphics/gltf.js';
+import { placeVehicle3D } from './vehicles3d.js';
 
 const INK = new THREE.LineBasicMaterial({ color: 0x0a0a0a, transparent: true, opacity: 0.7 });
 
@@ -24,7 +25,7 @@ const SURFACES = {
 };
 const KIND_SURFACE = {
   wall: 'concrete', slab: 'concrete', boundary: 'concrete', bunker: 'concrete', barrier: 'concrete', rubble: 'concrete',
-  pillar: 'concrete', rock: 'rock', car: 'metal', bus: 'metal', container: 'corrugated', crane: 'metal', rack: 'metal',
+  pillar: 'concrete', rock: 'rock', car: 'metal', bus: 'metal', truck: 'metal', container: 'corrugated', crane: 'metal', rack: 'metal',
   barrel: 'metal', crate: 'wood', platform: 'wood', stair: 'wood', rail: 'wood', log: 'bark', tree: 'bark', pole: 'wood',
   tent: 'fabric', sandbag: 'fabric',
 };
@@ -248,8 +249,10 @@ export function buildWorld(scene, map, opts = {}) {
 
   // ---- merged geometry, grouped by colour + surface (flat ground decals kept separate for depth offset) ----
   // Kinds listed in KIND_ASSETS are rendered as high-quality glTF instead of boxes.
+  // Vehicles with vehicleType use full procedural 3D meshes (see vehicles3d.js).
   const GLTF_KINDS = new Set(Object.keys(KIND_ASSETS));
   const gltfBoxTargets = [];
+  const vehicleTargets = [];
   const groups = new Map();
   const edgeGeos = [];
   const tmp = new THREE.Matrix4();
@@ -263,6 +266,10 @@ export function buildWorld(scene, map, opts = {}) {
   };
   for (const b of map.boxes) {
     if (b.kind === 'boundary' || b.invisible) continue;
+    if (b.vehicleType) {
+      vehicleTargets.push(b);
+      continue; // collision on map.boxes; mesh from vehicles3d
+    }
     if (GLTF_KINDS.has(b.kind) && b.h >= 0.45) {
       gltfBoxTargets.push(b);
       continue; // collision stays on map.boxes; visual comes from glTF
@@ -486,9 +493,16 @@ export function buildWorld(scene, map, opts = {}) {
   const hdRoot = new THREE.Group();
   hdRoot.name = 'hd-props';
   root.add(hdRoot);
-  populateHdProps(hdRoot, gltfBoxTargets, map).catch((e) => console.warn('[hd-props]', e));
 
-  return { root, sun, sky: skyMesh, update, dispose, hdRoot };
+  // Full 3D vehicles (sedan / wreck / bus / truck) — sync so they appear immediately.
+  const vehRoot = new THREE.Group();
+  vehRoot.name = 'vehicles-3d';
+  root.add(vehRoot);
+  populateVehicles3D(vehRoot, vehicleTargets);
+
+  populateHdProps(hdRoot, gltfBoxTargets, map, vehicleTargets).catch((e) => console.warn('[hd-props]', e));
+
+  return { root, sun, sky: skyMesh, update, dispose, hdRoot, vehRoot };
 }
 
 /** Cluster nearby boxes of the same kind into one AABB for a single glTF instance.
@@ -535,7 +549,28 @@ function clusterBoxes(boxes, maxDist = 4.2) {
   }));
 }
 
-async function populateHdProps(hdRoot, boxTargets, map) {
+function populateVehicles3D(vehRoot, targets) {
+  for (const b of targets) {
+    const type = b.vehicleType
+      || (b.kind === 'bus' ? 'bus' : b.kind === 'truck' ? 'truck' : 'sedan');
+    let style = b.vehicleStyle || 'intact';
+    if (!b.vehicleStyle && type === 'sedan') {
+      // Infer wreck style from short collision height (legacy maps).
+      if (b.h <= 1.2) style = 'crushed';
+      else if (b.h <= 1.45 && b.color === '#1a1a1a') style = 'flipped';
+    }
+    placeVehicle3D(vehRoot, {
+      vehicleType: type,
+      vehicleStyle: style,
+      color: b.color,
+      cargo: b.cargo || 'container',
+      alongX: b.alongX,
+      rotY: b.rotY,
+    }, b.x, b.z);
+  }
+}
+
+async function populateHdProps(hdRoot, boxTargets, map, vehicleTargets = []) {
   // Facade kits are multi-piece packs with huge bounds — they float into the sky. Skip them.
   const ids = [
     ...new Set([
@@ -546,37 +581,35 @@ async function populateHdProps(hdRoot, boxTargets, map) {
   await preloadGltf(ids);
 
   const clusters = clusterBoxes(boxTargets);
-  const maxCars = 28, maxOther = 40;
-  let cars = 0, other = 0;
+  const maxOther = 40;
+  let other = 0;
   for (const c of clusters) {
     const assets = KIND_ASSETS[c.kind];
     if (!assets?.length) continue;
-    const isCar = c.kind === 'car' || c.kind === 'bus';
-    if (isCar) { if (cars >= maxCars) continue; cars++; }
-    else { if (other >= maxOther) continue; other++; }
+    if (other >= maxOther) continue;
+    other++;
     const asset = assets[(Math.abs(Math.floor(c.x * 7 + c.z * 13)) % assets.length)];
     const yaw = c.w >= c.d ? 0 : Math.PI / 2;
-    // Cap height so oversized kits / trucks never launch into the sky.
-    const h = Math.min(c.h, isCar ? 2.4 : 2.8);
-    const pad = isCar ? 0.9 : 0.85;
-    const maxScale = isCar ? 3.5 : 4.5;
-    await placeGltf(hdRoot, asset, { ...c, h }, { pad, yaw, yAlign: 'bottom', maxScale, groundY: 0 });
+    const h = Math.min(c.h, 2.8);
+    await placeGltf(hdRoot, asset, { ...c, h }, { pad: 0.85, yaw, yAlign: 'bottom', maxScale: 4.5, groundY: 0 });
   }
 
-  // Scatter debris near car clusters for war-zone feel (grounded).
+  // Scatter debris near 3D vehicles for war-zone feel.
   const debrisTpl = {};
   for (const id of DEBRIS_ASSETS) debrisTpl[id] = await loadGltf(id);
   let debris = 0;
-  for (const c of clusters) {
-    if (c.kind !== 'car' && c.kind !== 'bus') continue;
-    if (debris >= 36) break;
+  const near = vehicleTargets.length
+    ? vehicleTargets
+    : clusters.filter((c) => c.kind === 'car' || c.kind === 'bus' || c.kind === 'truck');
+  for (const c of near) {
+    if (debris >= 40) break;
     for (let i = 0; i < 2; i++) {
       const id = DEBRIS_ASSETS[(debris + i) % DEBRIS_ASSETS.length];
       const tpl = debrisTpl[id];
       if (!tpl) continue;
       const inst = cloneGltf(tpl);
       const ang = (debris * 1.7 + i) % (Math.PI * 2);
-      const r = 2.2 + (i * 0.8);
+      const r = 2.4 + (i * 0.85);
       const x = c.x + Math.cos(ang) * r;
       const z = c.z + Math.sin(ang) * r;
       if (Math.abs(x) > map.HALF - 2 || Math.abs(z) > map.HALF - 2) continue;
